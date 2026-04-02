@@ -260,16 +260,19 @@ export default function ParentDashboard({ onNavigate }) {
                 }}>
                   <span style={{ fontSize: '20px', width: '28px', textAlign: 'center', flexShrink: 0 }}>{task.icon}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</p>
-                    <p style={{ fontSize: '13px', color: '#9ca3af', margin: '2px 0 0' }}>{task.profiles?.name}</p>
+                    <p style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: 0 }}>{task.title}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>{task.profiles?.avatar_emoji} {task.profiles?.name}</span>
+                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>·</span>
+                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>+{task.credit_value} pts</span>
+                      <span style={{
+                        fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
+                        background: s.bg, color: s.color,
+                      }}>
+                        {s.label}
+                      </span>
+                    </div>
                   </div>
-                  <span style={{ fontSize: '13px', color: '#9ca3af', flexShrink: 0 }}>+{task.credit_value} pts</span>
-                  <span style={{
-                    fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '99px', flexShrink: 0,
-                    background: s.bg, color: s.color,
-                  }}>
-                    {s.label}
-                  </span>
                 </div>
               )
             })}
