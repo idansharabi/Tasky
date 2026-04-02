@@ -115,12 +115,42 @@ export default function TaskCard({ task, onSubmit }) {
         </button>
       )}
 
-      {task.status === 'submitted' && task.task_submissions?.[0]?.photo_url && (
+      {task.task_submissions?.[0]?.photo_url && (
         <img
           src={task.task_submissions[0].photo_url}
           alt="Submitted"
           style={{ width: '100%', maxHeight: '120px', objectFit: 'cover', borderRadius: '10px', marginTop: '10px', opacity: 0.85 }}
         />
+      )}
+
+      {task.task_submissions?.[0]?.ai_reasoning && task.status !== 'pending' && (
+        <div style={{
+          marginTop: '10px', padding: '10px 12px', borderRadius: '10px',
+          background: task.task_submissions[0].ai_approved ? '#f0fdf4' : '#fffbeb',
+          border: `1px solid ${task.task_submissions[0].ai_approved ? '#bbf7d0' : '#fde68a'}`,
+          display: 'flex', gap: '8px', alignItems: 'flex-start',
+        }}>
+          <span style={{ fontSize: '14px', flexShrink: 0 }}>
+            {task.task_submissions[0].ai_approved ? '🤖✅' : '🤖🔍'}
+          </span>
+          <p style={{
+            fontSize: '12px', margin: 0, lineHeight: 1.5,
+            color: task.task_submissions[0].ai_approved ? '#166534' : '#92400e',
+          }}>
+            {task.task_submissions[0].ai_reasoning}
+          </p>
+        </div>
+      )}
+
+      {task.status === 'rejected' && !task.task_submissions?.[0]?.ai_reasoning && (
+        <div style={{
+          marginTop: '10px', padding: '10px 12px', borderRadius: '10px',
+          background: '#fef2f2', border: '1px solid #fecaca',
+        }}>
+          <p style={{ fontSize: '12px', margin: 0, color: '#dc2626' }}>
+            💪 Not approved this time — give it another try!
+          </p>
+        </div>
       )}
     </div>
   )

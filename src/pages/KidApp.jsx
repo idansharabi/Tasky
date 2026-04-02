@@ -3,10 +3,12 @@ import { LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import KidDashboard from '../components/kid/KidDashboard'
 import CreditHistory from '../components/kid/CreditHistory'
+import KidProfile from '../components/kid/KidProfile'
 
 const TABS = [
   { id: 'tasks',   label: 'My Tasks',  icon: '✅' },
   { id: 'history', label: 'History',   icon: '📜' },
+  { id: 'profile', label: 'Profile',   icon: '🏆' },
 ]
 
 export default function KidApp() {
@@ -78,6 +80,7 @@ export default function KidApp() {
       <main style={{ flex: 1, maxWidth: '600px', margin: '0 auto', width: '100%', padding: '20px 20px 40px' }}>
         {tab === 'tasks'   && <KidDashboard />}
         {tab === 'history' && <CreditHistory />}
+        {tab === 'profile' && <KidProfile />}
       </main>
     </div>
   )
