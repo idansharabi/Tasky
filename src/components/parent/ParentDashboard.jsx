@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import Modal from '../shared/Modal'
+import { sendPush } from '../../lib/notifications'
 
 const STATUS = {
   pending:   { label: 'Pending',   bg: '#f3f4f6', color: '#6b7280' },
@@ -70,12 +71,14 @@ export default function ParentDashboard({ onNavigate }) {
       created_by: profile.id,
     })
     toast.success(`Approved · +${assignment.credit_value} credits`)
+    sendPush([assignment.kid_id], 'Task Approved! 🎉', `+${assignment.credit_value} credits for "${assignment.title}"`)
     setReviewItem(null); load()
   }
 
   async function handleReject(assignment) {
     await supabase.from('task_assignments').update({ status: 'rejected' }).eq('id', assignment.id)
     toast.success('Task rejected')
+    sendPush([assignment.kid_id], 'Try Again 💪', `"${assignment.title}" needs another attempt.`)
     setReviewItem(null); load()
   }
 

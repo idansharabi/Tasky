@@ -47,6 +47,17 @@ async function savePushSubscription(userId, subscription) {
   })
 }
 
+export async function sendPush(userIds, title, body) {
+  if (!userIds?.length) return
+  try {
+    await supabase.functions.invoke('send-push', {
+      body: { userIds, title, body },
+    })
+  } catch (err) {
+    console.error('sendPush error:', err)
+  }
+}
+
 export function showLocalNotification(title, body, icon = '/icons/icon-192.png') {
   if (Notification.permission === 'granted') {
     new Notification(title, { body, icon })

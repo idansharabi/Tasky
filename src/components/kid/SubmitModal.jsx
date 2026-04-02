@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { analyzeTaskPhoto } from '../../lib/gemini'
 import { useAuth } from '../../contexts/AuthContext'
+import { sendPush } from '../../lib/notifications'
 
 export default function SubmitModal({ task, onClose, onDone }) {
   const { profile } = useAuth()
@@ -110,6 +111,19 @@ export default function SubmitModal({ task, onClose, onDone }) {
         toast.success('Submitted! Waiting for parent to review.')
       }
     }
+    // Notify parents
+    const { data: parents } = await supabase.from('profiles').select('id').eq('role', 'parent')
+    if (parents?.length) {
+      const parentIds = parents.map(p => p.id)
+      const notifTitle = aiVerdict?.approved === true && aiVerdict?.confidence === 'high'
+        ? `${profile.name} completed "${task.title}" ✅`
+        : `${profile.name} submitted "${task.title}" 📋`
+      const notifBody = aiVerdict?.approved === true && aiVerdict?.confidence === 'high'
+        ? `Auto-approved! +${task.credit_value} credits awarded.`
+        : 'Waiting for your review.'
+      sendPush(parentIds, notifTitle, notifBody)
+    }
+
     setPhase('done')
     onDone()
   }
