@@ -265,7 +265,7 @@ export default function TaskScheduler() {
   const load = useCallback(async () => {
     const [kidsRes, templatesRes, assignRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'kid').order('name'),
-      supabase.from('task_templates').select('*').eq('created_by', profile.id).order('title'),
+      supabase.from('task_templates').select('*').order('title'),
       supabase
         .from('task_assignments')
         .select('*')

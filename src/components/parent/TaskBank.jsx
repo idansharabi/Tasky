@@ -46,7 +46,6 @@ export default function TaskBank() {
     const { data } = await supabase
       .from('task_templates')
       .select('*')
-      .eq('created_by', profile.id)
       .order('created_at', { ascending: false })
     setTemplates(data || [])
     setLoading(false)
