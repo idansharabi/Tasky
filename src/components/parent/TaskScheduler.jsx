@@ -8,6 +8,7 @@ import {
   useDroppable,
   useDraggable,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -87,7 +88,7 @@ function OverlayCard({ tpl }) {
   )
 }
 
-// ── Task Bank panel (shared by both views) ────────────────────
+// ── Task Bank panel — desktop (vertical list) ────────────────
 function TaskBankPanel({ templates }) {
   return (
     <div style={{ width: '260px', flexShrink: 0, paddingLeft: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -104,6 +105,54 @@ function TaskBankPanel({ templates }) {
           {templates.map((tpl) => <DraggableTemplate key={tpl.id} tpl={tpl} />)}
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Task Bank panel — mobile (horizontal strip) ───────────────
+function TaskBankMobile({ templates }) {
+  return (
+    <div style={{ flexShrink: 0, borderTop: '1px solid #f3f4f6', padding: '12px 16px 8px' }}>
+      <h2 style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', letterSpacing: '0.8px', textTransform: 'uppercase', margin: '0 0 10px' }}>
+        Task Bank — drag to assign
+      </h2>
+      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
+        {templates.length === 0 ? (
+          <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>No tasks yet.</p>
+        ) : (
+          templates.map((tpl) => <DraggableTemplateMobile key={tpl.id} tpl={tpl} />)
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DraggableTemplateMobile({ tpl }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: tpl.id, data: { tpl } })
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+        padding: '10px 12px', flexShrink: 0,
+        background: isDragging ? '#eef2ff' : '#fff',
+        borderRadius: '12px',
+        border: isDragging ? '1.5px solid #6366f1' : '1px solid #e5e7eb',
+        boxShadow: isDragging ? '0 4px 16px rgba(99,102,241,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+        cursor: 'grab', opacity: isDragging ? 0.4 : 1,
+        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+        userSelect: 'none', touchAction: 'none',
+        minWidth: '72px', maxWidth: '88px',
+      }}
+    >
+      <span style={{ fontSize: '22px' }}>{tpl.icon}</span>
+      <span style={{ fontSize: '10px', fontWeight: 600, color: '#111827', textAlign: 'center', lineHeight: 1.2,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
+        {tpl.title}
+      </span>
+      <span style={{ fontSize: '10px', color: '#9ca3af' }}>+{tpl.credit_value}</span>
     </div>
   )
 }
@@ -253,8 +302,18 @@ export default function TaskScheduler() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [activeTemplate, setActiveTemplate] = useState(null)
   const [overId, setOverId] = useState(null)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
+  )
 
   const weekStart = startOfWeek(new Date(selectedDate + 'T00:00:00'), { weekStartsOn: 0 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -354,15 +413,15 @@ export default function TaskScheduler() {
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
       {/* ── Header ── */}
-      <div style={{ padding: '28px 40px 0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ padding: isMobile ? '16px 16px 0' : '28px 40px 0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
-            <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.4px' }}>Schedule</h1>
-            <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>Drag tasks onto kids to assign them</p>
+            <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.4px' }}>Schedule</h1>
+            {!isMobile && <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>Drag tasks onto kids to assign them</p>}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* View toggle */}
-            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '4px', gap: '2px' }}>
+            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
               {[
                 { id: 'daily',  icon: LayoutList, label: 'Daily' },
                 { id: 'weekly', icon: LayoutGrid,  label: 'Weekly' },
@@ -371,8 +430,8 @@ export default function TaskScheduler() {
                   key={id}
                   onClick={() => setView(id)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                    padding: '7px 14px', borderRadius: '8px', border: 'none',
+                    display: 'flex', alignItems: 'center', gap: isMobile ? '0' : '6px',
+                    padding: isMobile ? '7px 10px' : '7px 14px', borderRadius: '8px', border: 'none',
                     fontSize: '13px', fontWeight: 600, cursor: 'pointer',
                     background: view === id ? '#fff' : 'transparent',
                     color: view === id ? '#111827' : '#9ca3af',
@@ -380,22 +439,24 @@ export default function TaskScheduler() {
                     transition: 'all 0.15s',
                   }}
                 >
-                  <Icon size={14} /> {label}
+                  <Icon size={14} />{!isMobile && ` ${label}`}
                 </button>
               ))}
             </div>
-            <button onClick={generateRecurring} style={{
-              display: 'flex', alignItems: 'center', gap: '6px',
-              padding: '9px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: 500,
-              border: '1px solid #e5e7eb', color: '#374151', background: '#fff', cursor: 'pointer',
-            }}>
-              <RefreshCw size={13} /> Recurring
-            </button>
+            {!isMobile && (
+              <button onClick={generateRecurring} style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '9px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: 500,
+                border: '1px solid #e5e7eb', color: '#374151', background: '#fff', cursor: 'pointer',
+              }}>
+                <RefreshCw size={13} /> Recurring
+              </button>
+            )}
           </div>
         </div>
 
         {/* Week navigation */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '6px', marginBottom: '16px' }}>
           <button
             onClick={() => setSelectedDate(format(view === 'weekly' ? subWeeks(new Date(selectedDate + 'T00:00:00'), 1) : addDays(new Date(selectedDate + 'T00:00:00'), -7), 'yyyy-MM-dd'))}
             style={{ padding: '7px', borderRadius: '9px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', color: '#6b7280', flexShrink: 0, display: 'flex' }}
@@ -412,14 +473,15 @@ export default function TaskScheduler() {
               return (
                 <button key={dayStr} onClick={() => setSelectedDate(dayStr)} style={{
                   display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '8px 12px', borderRadius: '10px', minWidth: '48px', flexShrink: 0,
+                  padding: isMobile ? '6px 8px' : '8px 12px', borderRadius: '10px',
+                  minWidth: isMobile ? '36px' : '48px', flexShrink: 0, flex: isMobile ? 1 : undefined,
                   border: isSelected ? 'none' : '1px solid #e5e7eb',
                   background: isSelected ? '#6366f1' : isToday ? '#eef2ff' : '#fff',
                   color: isSelected ? '#fff' : isToday ? '#6366f1' : '#374151',
                   cursor: 'pointer',
                 }}>
-                  <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{format(day, 'EEE')}</span>
-                  <span style={{ fontSize: '17px', fontWeight: 700, marginTop: '1px' }}>{format(day, 'd')}</span>
+                  <span style={{ fontSize: isMobile ? '9px' : '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{format(day, 'EEE')}</span>
+                  <span style={{ fontSize: isMobile ? '14px' : '17px', fontWeight: 700, marginTop: '1px' }}>{format(day, 'd')}</span>
                 </button>
               )
             })
@@ -448,14 +510,19 @@ export default function TaskScheduler() {
         onDragEnd={onDragEnd}
         onDragCancel={() => { setActiveTemplate(null); setOverId(null) }}
       >
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', padding: '0 40px 32px', minHeight: 0, gap: '0' }}>
+        <div style={{
+          flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0,
+          flexDirection: isMobile ? 'column' : 'row',
+          padding: isMobile ? '0 0 0' : '0 40px 32px',
+          gap: '0',
+        }}>
 
           {view === 'daily' ? (
             // ── Daily view ──────────────────────────────────────────
-            <div style={{ flex: 1, overflowY: 'auto', paddingRight: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', paddingRight: isMobile ? '0' : '20px', padding: isMobile ? '0 16px 8px' : undefined, display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
-                  {format(new Date(selectedDate + 'T00:00:00'), 'EEEE, MMMM d')}
+                  {format(new Date(selectedDate + 'T00:00:00'), isMobile ? 'EEE, MMM d' : 'EEEE, MMMM d')}
                 </span>
                 <span style={{ fontSize: '12px', color: '#9ca3af' }}>{dailyAssignments.length} task{dailyAssignments.length !== 1 ? 's' : ''}</span>
               </div>
@@ -537,12 +604,17 @@ export default function TaskScheduler() {
             </div>
           )}
 
-          {/* Divider */}
-          <div style={{ width: '1px', background: '#f3f4f6', flexShrink: 0, marginLeft: view === 'daily' ? '0' : '20px' }} />
-
-          {/* Task Bank (right panel) */}
-          <TaskBankPanel templates={templates} />
+          {/* Divider + Task Bank — desktop only */}
+          {!isMobile && (
+            <>
+              <div style={{ width: '1px', background: '#f3f4f6', flexShrink: 0, marginLeft: view === 'daily' ? '0' : '20px' }} />
+              <TaskBankPanel templates={templates} />
+            </>
+          )}
         </div>
+
+        {/* Task Bank — mobile horizontal strip at bottom */}
+        {isMobile && <TaskBankMobile templates={templates} />}
 
         <DragOverlay dropAnimation={null}>
           {activeTemplate ? <OverlayCard tpl={activeTemplate} /> : null}
