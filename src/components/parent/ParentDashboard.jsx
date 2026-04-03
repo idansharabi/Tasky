@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { format } from 'date-fns'
 import { CheckCircle, XCircle, Star, AlertCircle, Plus, TrendingUp } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -23,6 +23,7 @@ export default function ParentDashboard({ onNavigate }) {
   const [loading, setLoading] = useState(true)
   const [reviewItem, setReviewItem] = useState(null)
   const [manualCreditKid, setManualCreditKid] = useState(null)
+  const pendingRef = useRef(null)
   const [manualAmount, setManualAmount] = useState('')
   const [manualNote, setManualNote] = useState('')
 
@@ -130,9 +131,19 @@ export default function ParentDashboard({ onNavigate }) {
           borderRadius: '12px', padding: '14px 18px', marginBottom: '40px',
         }}>
           <AlertCircle size={16} color="#d97706" />
-          <span style={{ fontSize: '14px', color: '#92400e', fontWeight: 500 }}>
+          <span style={{ fontSize: '14px', color: '#92400e', fontWeight: 500, flex: 1 }}>
             {pendingSubmissions.length} task{pendingSubmissions.length > 1 ? 's' : ''} waiting for your review
           </span>
+          <button
+            onClick={() => pendingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            style={{
+              fontSize: '13px', fontWeight: 600, color: '#d97706',
+              background: 'none', border: '1px solid #fde68a', borderRadius: '8px',
+              padding: '5px 12px', cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            Review now ↓
+          </button>
         </div>
       )}
 
@@ -189,7 +200,7 @@ export default function ParentDashboard({ onNavigate }) {
 
       {/* Pending review */}
       {pendingSubmissions.length > 0 && (
-        <Section title="Pending review" count={pendingSubmissions.length}>
+        <Section title="Pending review" count={pendingSubmissions.length} sectionRef={pendingRef}>
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             {pendingSubmissions.map((item, i) => {
               const sub = item.task_submissions?.[0]
@@ -258,31 +269,49 @@ export default function ParentDashboard({ onNavigate }) {
           </div>
         ) : (
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            {todayAssignments.map((task, i) => {
-              const s = STATUS[task.status] || STATUS.pending
-              return (
-                <div key={task.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 20px',
-                  borderBottom: i < todayAssignments.length - 1 ? '1px solid #f3f4f6' : 'none',
-                }}>
-                  <span style={{ fontSize: '20px', width: '28px', textAlign: 'center', flexShrink: 0 }}>{task.icon}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: 0 }}>{task.title}</p>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>{task.profiles?.avatar_emoji} {task.profiles?.name}</span>
-                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>·</span>
-                      <span style={{ fontSize: '12px', color: '#9ca3af' }}>+{task.credit_value} pts</span>
-                      <span style={{
-                        fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '99px',
-                        background: s.bg, color: s.color,
-                      }}>
-                        {s.label}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  {['Task', 'Kid', 'Credits', 'Status'].map(h => (
+                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#fafafa' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {todayAssignments.map((task, i) => {
+                  const s = STATUS[task.status] || STATUS.pending
+                  return (
+                    <tr key={task.id} style={{ borderBottom: i < todayAssignments.length - 1 ? '1px solid #f9fafb' : 'none' }}>
+                      <td style={{ padding: '13px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '18px' }}>{task.icon}</span>
+                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>{task.title}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '13px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '14px' }}>{task.profiles?.avatar_emoji}</span>
+                          <span style={{ fontSize: '13px', color: '#374151' }}>{task.profiles?.name}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '13px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Star size={11} fill="#f59e0b" color="#f59e0b" />
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '13px 16px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '99px', background: s.bg, color: s.color }}>
+                          {s.label}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </Section>
@@ -336,9 +365,9 @@ export default function ParentDashboard({ onNavigate }) {
   )
 }
 
-function Section({ title, children, count, meta, action }) {
+function Section({ title, children, count, meta, action, sectionRef }) {
   return (
-    <div style={{ marginBottom: '52px' }}>
+    <div ref={sectionRef} style={{ marginBottom: '52px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
