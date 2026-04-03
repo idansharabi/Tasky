@@ -317,47 +317,75 @@ export default function ParentDashboard({ onNavigate }) {
           </div>
         ) : (
           <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <thead>
-                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  {['Task', 'Kid', 'Credits', 'Status'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', background: '#fafafa' }}>
-                      {h}
-                    </th>
-                  ))}
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  {kids.map(kid => {
+                    const kidTasks = todayAssignments.filter(t => t.kid_id === kid.id)
+                    const done = kidTasks.filter(t => t.status === 'approved').length
+                    return (
+                      <th key={kid.id} style={{
+                        padding: '12px 20px', textAlign: 'left',
+                        background: kid.avatar_color + '08',
+                        borderRight: '1px solid #f3f4f6',
+                        borderTop: `3px solid ${kid.avatar_color}`,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                          <span style={{ fontSize: '18px' }}>{kid.avatar_emoji}</span>
+                          <div>
+                            <p style={{ fontSize: '13px', fontWeight: 700, color: '#111827', margin: 0 }}>{kid.name}</p>
+                            <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{done}/{kidTasks.length} done</p>
+                          </div>
+                        </div>
+                      </th>
+                    )
+                  })}
                 </tr>
               </thead>
               <tbody>
-                {todayAssignments.map((task, i) => {
-                  const s = STATUS[task.status] || STATUS.pending
-                  return (
-                    <tr key={task.id} style={{ borderBottom: i < todayAssignments.length - 1 ? '1px solid #f9fafb' : 'none' }}>
-                      <td style={{ padding: '13px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '18px' }}>{task.icon}</span>
-                          <span style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>{task.title}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '13px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ fontSize: '14px' }}>{task.profiles?.avatar_emoji}</span>
-                          <span style={{ fontSize: '13px', color: '#374151' }}>{task.profiles?.name}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '13px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Star size={11} fill="#f59e0b" color="#f59e0b" />
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '13px 16px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '99px', background: s.bg, color: s.color }}>
-                          {s.label}
-                        </span>
-                      </td>
+                {(() => {
+                  const maxRows = Math.max(...kids.map(kid =>
+                    todayAssignments.filter(t => t.kid_id === kid.id).length
+                  ), 0)
+
+                  return Array.from({ length: maxRows }, (_, rowIdx) => (
+                    <tr key={rowIdx} style={{ borderTop: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                      {kids.map(kid => {
+                        const kidTasks = todayAssignments.filter(t => t.kid_id === kid.id)
+                        const task = kidTasks[rowIdx]
+                        const s = task ? (STATUS[task.status] || STATUS.pending) : null
+                        return (
+                          <td key={kid.id} style={{
+                            padding: '12px 20px',
+                            borderRight: '1px solid #f9fafb',
+                            background: task ? '#fff' : '#fafafa',
+                            verticalAlign: 'top',
+                          }}>
+                            {task ? (
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                <span style={{ fontSize: '16px', flexShrink: 0, marginTop: '1px' }}>{task.icon}</span>
+                                <div style={{ minWidth: 0 }}>
+                                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>{task.title}</p>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                      <Star size={10} fill="#f59e0b" color="#f59e0b" />
+                                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
+                                    </div>
+                                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '99px', background: s.bg, color: s.color }}>
+                                      {s.label}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#e5e7eb', fontSize: '18px' }}>—</span>
+                            )}
+                          </td>
+                        )
+                      })}
                     </tr>
-                  )
-                })}
+                  ))
+                })()}
               </tbody>
             </table>
           </div>
