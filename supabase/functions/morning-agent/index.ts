@@ -146,8 +146,23 @@ Deno.serve(async (req) => {
       )
     }
 
+    // ── 6. Count actual push subscriptions for parents ────────
+    const parentIds = (parents || []).map((p: any) => p.id)
+    const { data: parentSubs } = await supabase
+      .from('push_subscriptions')
+      .select('user_id')
+      .in('user_id', parentIds)
+
     return new Response(
-      JSON.stringify({ success: true, generated: toInsert.length, notified: (kids || []).length }),
+      JSON.stringify({
+        success: true,
+        generated: toInsert.length,
+        total_tasks_today: totalTasks,
+        kids: (kids || []).length,
+        parents_found: parentIds.length,
+        parent_ids: parentIds,
+        parent_subscriptions: parentSubs?.length || 0,
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (err: any) {

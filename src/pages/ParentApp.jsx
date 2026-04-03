@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { LayoutDashboard, BookOpen, CalendarPlus, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, BookOpen, CalendarPlus, Users, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ParentDashboard from '../components/parent/ParentDashboard'
 import TaskBank from '../components/parent/TaskBank'
 import TaskScheduler from '../components/parent/TaskScheduler'
+import FamilyUsers from '../components/parent/FamilyUsers'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'bank',      label: 'Task Bank',  icon: BookOpen },
   { id: 'schedule',  label: 'Schedule',   icon: CalendarPlus },
+  { id: 'family',    label: 'Family',     icon: Users },
 ]
 
 export default function ParentApp() {
@@ -111,6 +113,7 @@ export default function ParentApp() {
           {tab === 'dashboard' && <ParentDashboard onNavigate={setTab} />}
           {tab === 'bank'      && <TaskBank />}
           {tab === 'schedule'  && <TaskScheduler />}
+          {tab === 'family'    && <FamilyUsers />}
         </main>
       </div>
 
