@@ -20,6 +20,7 @@ export default function AuditLog() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [hideLogins, setHideLogins] = useState(true)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -42,7 +43,9 @@ export default function AuditLog() {
   }, [load])
 
   const roles = ['all', 'parent', 'kid']
-  const filtered = filter === 'all' ? logs : logs.filter(l => l.user_role === filter)
+  const filtered = logs
+    .filter(l => filter === 'all' || l.user_role === filter)
+    .filter(l => !hideLogins || (l.action !== 'User logged in' && l.action !== 'User logged out'))
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '48px 40px 80px' }}>
@@ -58,8 +61,8 @@ export default function AuditLog() {
         </button>
       </div>
 
-      {/* Role filter */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '24px' }}>
+      {/* Filters */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px', flexWrap: 'wrap' }}>
         {roles.map(r => (
           <button key={r} onClick={() => setFilter(r)} style={{
             padding: '6px 16px', borderRadius: '99px', border: 'none', cursor: 'pointer',
@@ -71,6 +74,29 @@ export default function AuditLog() {
             {r.charAt(0).toUpperCase() + r.slice(1)}
           </button>
         ))}
+        <div style={{ width: '1px', height: '20px', background: '#e5e7eb', margin: '0 4px' }} />
+        <button
+          onClick={() => setHideLogins(h => !h)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '7px',
+            padding: '6px 14px', borderRadius: '99px', border: '1px solid #e5e7eb',
+            cursor: 'pointer', fontSize: '13px', fontWeight: 500,
+            background: hideLogins ? '#f0fdf4' : '#fff',
+            color: hideLogins ? '#16a34a' : '#6b7280',
+            transition: 'all 0.15s',
+          }}
+        >
+          <div style={{
+            width: '14px', height: '14px', borderRadius: '50%',
+            border: `2px solid ${hideLogins ? '#16a34a' : '#d1d5db'}`,
+            background: hideLogins ? '#16a34a' : '#fff',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            {hideLogins && <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#fff' }} />}
+          </div>
+          Hide logins
+        </button>
       </div>
 
       {loading ? (
