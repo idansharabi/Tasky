@@ -6,6 +6,7 @@ import TaskBank from '../components/parent/TaskBank'
 import TaskScheduler from '../components/parent/TaskScheduler'
 import FamilyUsers from '../components/parent/FamilyUsers'
 import AuditLog from '../components/parent/AuditLog'
+import ReleaseNotes from '../components/shared/ReleaseNotes'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -19,6 +20,7 @@ export default function ParentApp() {
   const { profile, signOut } = useAuth()
   const [tab, setTab] = useState('dashboard')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false)
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#f5f5f5', overflow: 'hidden' }}>
@@ -89,9 +91,18 @@ export default function ParentApp() {
             <LogOut size={15} />
             Sign out
           </button>
-          <p style={{ fontSize: '11px', color: '#374151', textAlign: 'center', margin: '8px 0 0', letterSpacing: '0.3px' }}>
-            v{__APP_VERSION__}
-          </p>
+          <button
+            onClick={() => setShowReleaseNotes(true)}
+            style={{
+              width: '100%', fontSize: '11px', color: '#4b5563', textAlign: 'center',
+              margin: '8px 0 0', letterSpacing: '0.3px', background: 'none', border: 'none',
+              cursor: 'pointer', padding: '2px 0',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#a5b4fc'}
+            onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
+          >
+            v{__APP_VERSION__} · What's new
+          </button>
         </div>
       </aside>
 
@@ -153,6 +164,8 @@ export default function ParentApp() {
           </aside>
         </div>
       )}
+
+      {showReleaseNotes && <ReleaseNotes onClose={() => setShowReleaseNotes(false)} />}
     </div>
   )
 }

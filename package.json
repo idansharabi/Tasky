@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "push": "node -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));const v=p.version.split('.');v[1]=parseInt(v[1])+1;v[2]=0;p.version=v.join('.');fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n');console.log('Version bumped to '+p.version)\" && git add package.json && git commit -m \"chore: bump version to $(node -p \"require('./package.json').version\")\" && git push origin main"
+    "push": "node scripts/push.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
