@@ -23,7 +23,7 @@ export default function ParentDashboard({ onNavigate }) {
   const [loading, setLoading] = useState(true)
   const [reviewItem, setReviewItem] = useState(null)
   const [manualCreditKid, setManualCreditKid] = useState(null)
-  const pendingRef = useRef(null)
+  const kidsRef = useRef(null)
   const [manualAmount, setManualAmount] = useState('')
   const [manualNote, setManualNote] = useState('')
 
@@ -135,7 +135,7 @@ export default function ParentDashboard({ onNavigate }) {
             {pendingSubmissions.length} task{pendingSubmissions.length > 1 ? 's' : ''} waiting for your review
           </span>
           <button
-            onClick={() => pendingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            onClick={() => kidsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
             style={{
               fontSize: '13px', fontWeight: 600, color: '#d97706',
               background: 'none', border: '1px solid #fde68a', borderRadius: '8px',
@@ -148,198 +148,147 @@ export default function ParentDashboard({ onNavigate }) {
       )}
 
       {/* Kids section */}
-      <Section
-        title="Kids"
-        count={kids.length}
-        action={null}
-      >
+      <Section title="Kids" count={kids.length} sectionRef={kidsRef}>
         {kids.length === 0 ? (
           <EmptyBox text="No kids yet. They'll appear once they sign up with the Kid role." />
         ) : (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-              {kids.map(kid => {
-                const kidTasks = todayAssignments.filter(t => t.kid_id === kid.id)
-                const done = kidTasks.filter(t => t.status === 'approved').length
-                const pct = kidTasks.length ? Math.round((done / kidTasks.length) * 100) : 0
-                return (
-                  <div key={kid.id} style={{
-                    background: '#fff', borderRadius: '14px',
-                    border: '1px solid #e5e7eb',
-                    borderTop: `3px solid ${kid.avatar_color}`,
-                    padding: '20px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '26px' }}>{kid.avatar_emoji}</span>
-                        <div>
-                          <p style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{kid.name}</p>
-                          <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{done}/{kidTasks.length} today</p>
-                        </div>
-                      </div>
-                      <button onClick={() => setManualCreditKid(kid)} title="Adjust credits"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '4px' }}>
-                        <TrendingUp size={14} />
-                      </button>
-                    </div>
-                    {/* Progress bar */}
-                    <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '99px', marginBottom: '12px', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${pct}%`, background: kid.avatar_color, borderRadius: '99px', transition: 'width 0.6s ease' }} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Star size={13} fill="#fbbf24" color="#fbbf24" />
-                      <span style={{ fontWeight: 700, fontSize: '15px', color: '#111827' }}>{kid.balance}</span>
-                      <span style={{ fontSize: '13px', color: '#9ca3af' }}>credits</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Pending review per kid */}
-            {pendingSubmissions.length > 0 && (() => {
-              // Group pending by kid
-              const byKid = kids
-                .map(kid => ({
-                  kid,
-                  tasks: pendingSubmissions.filter(t => t.kid_id === kid.id),
-                }))
-                .filter(({ tasks }) => tasks.length > 0)
-
-              if (byKid.length === 0) return null
-              return (
-                <div style={{ marginTop: '24px' }}>
-                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '0 0 12px' }}>
-                    Pending review
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {byKid.map(({ kid, tasks }) => (
-                      <div key={kid.id} style={{
-                        background: '#fff', borderRadius: '12px',
-                        border: '1px solid #e5e7eb',
-                        borderLeft: `3px solid ${kid.avatar_color}`,
-                        overflow: 'hidden',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                  {kids.map(kid => {
+                    const kidTasks = todayAssignments.filter(t => t.kid_id === kid.id)
+                    const done = kidTasks.filter(t => t.status === 'approved').length
+                    const pct = kidTasks.length ? Math.round((done / kidTasks.length) * 100) : 0
+                    const pending = pendingSubmissions.filter(t => t.kid_id === kid.id)
+                    return (
+                      <th key={kid.id} style={{
+                        padding: '16px 20px', textAlign: 'left',
+                        background: kid.avatar_color + '08',
+                        borderRight: '1px solid #f3f4f6',
+                        borderTop: `3px solid ${kid.avatar_color}`,
                       }}>
-                        {/* Kid header row */}
-                        <div style={{
-                          display: 'flex', alignItems: 'center', gap: '8px',
-                          padding: '10px 16px',
-                          background: kid.avatar_color + '0d',
-                          borderBottom: '1px solid #f3f4f6',
-                        }}>
-                          <span style={{ fontSize: '18px' }}>{kid.avatar_emoji}</span>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{kid.name}</span>
-                          <span style={{
-                            fontSize: '11px', fontWeight: 600, color: kid.avatar_color,
-                            background: kid.avatar_color + '20', borderRadius: '99px', padding: '2px 8px', marginLeft: '2px',
-                          }}>
-                            {tasks.length} pending
-                          </span>
+                        {/* Kid identity */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '22px' }}>{kid.avatar_emoji}</span>
+                            <div>
+                              <p style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>{kid.name}</p>
+                              <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{done}/{kidTasks.length} done today</p>
+                            </div>
+                          </div>
+                          <button onClick={() => setManualCreditKid(kid)} title="Adjust credits"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '2px', flexShrink: 0 }}>
+                            <TrendingUp size={13} />
+                          </button>
                         </div>
-                        {/* Tasks table */}
-                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                          <tbody>
-                            {tasks.map((task, i) => {
-                              const sub = task.task_submissions?.[0]
-                              return (
-                                <tr key={task.id} style={{ borderBottom: i < tasks.length - 1 ? '1px solid #f9fafb' : 'none' }}>
-                                  <td style={{ padding: '11px 16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ fontSize: '16px' }}>{task.icon}</span>
-                                      <div>
-                                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>{task.title}</p>
-                                        {sub?.ai_reasoning && (
-                                          <p style={{ fontSize: '11px', color: sub.ai_approved ? '#16a34a' : '#d97706', margin: '2px 0 0' }}>
-                                            AI {sub.ai_approved ? '✓' : '?'} {sub.ai_reasoning}
-                                          </p>
-                                        )}
-                                      </div>
+                        {/* Progress bar */}
+                        <div style={{ height: '3px', background: '#f3f4f6', borderRadius: '99px', marginBottom: '8px', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${pct}%`, background: kid.avatar_color, borderRadius: '99px', transition: 'width 0.6s ease' }} />
+                        </div>
+                        {/* Balance + pending badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Star size={11} fill="#fbbf24" color="#fbbf24" />
+                            <span style={{ fontWeight: 700, fontSize: '13px', color: '#111827' }}>{kid.balance}</span>
+                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>credits</span>
+                          </div>
+                          {pending.length > 0 && (
+                            <span style={{
+                              fontSize: '10px', fontWeight: 700, color: '#fff',
+                              background: '#f59e0b', borderRadius: '99px', padding: '2px 7px',
+                            }}>
+                              {pending.length} pending
+                            </span>
+                          )}
+                        </div>
+                      </th>
+                    )
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  // Build rows: each row index corresponds to the Nth pending task
+                  const maxRows = Math.max(...kids.map(kid =>
+                    pendingSubmissions.filter(t => t.kid_id === kid.id).length
+                  ), 0)
+
+                  if (maxRows === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={kids.length} style={{ padding: '32px', textAlign: 'center' }}>
+                          <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>No pending tasks to review 🎉</p>
+                        </td>
+                      </tr>
+                    )
+                  }
+
+                  return Array.from({ length: maxRows }, (_, rowIdx) => (
+                    <tr key={rowIdx} style={{ borderTop: '1px solid #f3f4f6', verticalAlign: 'top' }}>
+                      {kids.map(kid => {
+                        const kidPending = pendingSubmissions.filter(t => t.kid_id === kid.id)
+                        const task = kidPending[rowIdx]
+                        const sub = task?.task_submissions?.[0]
+                        return (
+                          <td key={kid.id} style={{
+                            padding: task ? '14px 20px' : '14px 20px',
+                            borderRight: '1px solid #f9fafb',
+                            background: task ? '#fff' : '#fafafa',
+                            verticalAlign: 'top',
+                          }}>
+                            {task ? (
+                              <div>
+                                {/* Task title */}
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '8px' }}>
+                                  <span style={{ fontSize: '16px', flexShrink: 0 }}>{task.icon}</span>
+                                  <div style={{ minWidth: 0 }}>
+                                    <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>{task.title}</p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', marginTop: '2px' }}>
+                                      <Star size={10} fill="#f59e0b" color="#f59e0b" />
+                                      <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
                                     </div>
-                                  </td>
-                                  <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                      <Star size={11} fill="#f59e0b" color="#f59e0b" />
-                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
-                                    </div>
-                                  </td>
-                                  <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                      {sub?.photo_url && (
-                                        <button onClick={() => setReviewItem(task)}
-                                          style={{ fontSize: '12px', padding: '5px 10px', border: '1px solid #e5e7eb', borderRadius: '7px', background: '#fff', cursor: 'pointer', color: '#374151', fontWeight: 500 }}>
-                                          Photo
-                                        </button>
-                                      )}
-                                      <button onClick={() => handleReject(task)}
-                                        style={{ width: '28px', height: '28px', border: '1px solid #fee2e2', borderRadius: '7px', background: '#fef2f2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <XCircle size={14} color="#ef4444" />
-                                      </button>
-                                      <button onClick={() => handleApprove(task)}
-                                        style={{ width: '28px', height: '28px', border: '1px solid #bbf7d0', borderRadius: '7px', background: '#f0fdf4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <CheckCircle size={14} color="#16a34a" />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )
-            })()}
-          </>
+                                    {sub?.ai_reasoning && (
+                                      <p style={{ fontSize: '11px', color: sub.ai_approved ? '#16a34a' : '#d97706', margin: '4px 0 0', lineHeight: 1.3 }}>
+                                        AI {sub.ai_approved ? '✓' : '?'} {sub.ai_reasoning}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Actions */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {sub?.photo_url && (
+                                    <button onClick={() => setReviewItem(task)}
+                                      style={{ fontSize: '11px', padding: '4px 9px', border: '1px solid #e5e7eb', borderRadius: '6px', background: '#fff', cursor: 'pointer', color: '#374151', fontWeight: 500 }}>
+                                      Photo
+                                    </button>
+                                  )}
+                                  <button onClick={() => handleReject(task)}
+                                    style={{ width: '26px', height: '26px', border: '1px solid #fee2e2', borderRadius: '6px', background: '#fef2f2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <XCircle size={13} color="#ef4444" />
+                                  </button>
+                                  <button onClick={() => handleApprove(task)}
+                                    style={{ width: '26px', height: '26px', border: '1px solid #bbf7d0', borderRadius: '6px', background: '#f0fdf4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <CheckCircle size={13} color="#16a34a" />
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span style={{ color: '#e5e7eb', fontSize: '18px' }}>—</span>
+                            )}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
+          </div>
         )}
       </Section>
 
-      {/* Pending review */}
-      {pendingSubmissions.length > 0 && (
-        <Section title="Pending review" count={pendingSubmissions.length} sectionRef={pendingRef}>
-          <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            {pendingSubmissions.map((item, i) => {
-              const sub = item.task_submissions?.[0]
-              return (
-                <div key={item.id} style={{
-                  display: 'flex', alignItems: 'center', gap: '14px', padding: '16px 20px',
-                  borderBottom: i < pendingSubmissions.length - 1 ? '1px solid #f3f4f6' : 'none',
-                }}>
-                  <span style={{ fontSize: '22px', flexShrink: 0 }}>{item.profiles?.avatar_emoji || '🧒'}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '14px', fontWeight: 600, color: '#111827', margin: 0 }}>{item.title}</p>
-                    <p style={{ fontSize: '13px', color: '#9ca3af', margin: '2px 0 0' }}>{item.profiles?.name} · +{item.credit_value} credits</p>
-                    {sub?.ai_reasoning && (
-                      <p style={{ fontSize: '12px', color: sub.ai_approved ? '#16a34a' : '#d97706', margin: '4px 0 0' }}>
-                        AI: {sub.ai_approved ? '✓' : '?'} {sub.ai_reasoning}
-                      </p>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    {sub?.photo_url && (
-                      <button onClick={() => setReviewItem(item)}
-                        style={{ fontSize: '13px', padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: '8px', background: '#fff', cursor: 'pointer', color: '#374151', fontWeight: 500 }}>
-                        View photo
-                      </button>
-                    )}
-                    <button onClick={() => handleReject(item)}
-                      style={{ width: '32px', height: '32px', border: '1px solid #fee2e2', borderRadius: '8px', background: '#fef2f2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <XCircle size={16} color="#ef4444" />
-                    </button>
-                    <button onClick={() => handleApprove(item)}
-                      style={{ width: '32px', height: '32px', border: '1px solid #bbf7d0', borderRadius: '8px', background: '#f0fdf4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <CheckCircle size={16} color="#16a34a" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </Section>
-      )}
+      {/* Pending review — now embedded in the Kids table above */}
 
       {/* Today's tasks */}
       <Section
