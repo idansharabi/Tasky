@@ -41,7 +41,7 @@ export default function KidApp() {
             </div>
             <div>
               <p style={{ fontWeight: 700, fontSize: '15px', color: '#111827', margin: 0, lineHeight: 1.2 }}>{profile?.name}</p>
-              <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>✅ Tasky</p>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>✅ Tasky <span style={{ fontSize: '10px', color: '#d1d5db' }}>v{__APP_VERSION__}</span></p>
             </div>
           </div>
           <button

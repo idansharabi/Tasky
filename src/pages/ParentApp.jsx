@@ -89,6 +89,9 @@ export default function ParentApp() {
             <LogOut size={15} />
             Sign out
           </button>
+          <p style={{ fontSize: '11px', color: '#374151', textAlign: 'center', margin: '8px 0 0', letterSpacing: '0.3px' }}>
+            v{__APP_VERSION__}
+          </p>
         </div>
       </aside>
 
