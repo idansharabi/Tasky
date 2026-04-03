@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "push": "node scripts/push.js"
+    "push": "node scripts/push.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
