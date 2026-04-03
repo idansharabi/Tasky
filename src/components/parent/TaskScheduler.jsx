@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Trash2, ChevronLeft, ChevronRight, RefreshCw, Star, LayoutList, LayoutGrid } from 'lucide-react'
+import { Trash2, ChevronLeft, ChevronRight, Star, LayoutList, LayoutGrid } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   DndContext,
@@ -452,15 +452,6 @@ export default function TaskScheduler() {
                 </button>
               ))}
             </div>
-            {!isMobile && (
-              <button onClick={generateRecurring} style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '9px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: 500,
-                border: '1px solid #e5e7eb', color: '#374151', background: '#fff', cursor: 'pointer',
-              }}>
-                <RefreshCw size={13} /> Recurring
-              </button>
-            )}
           </div>
         </div>
 
