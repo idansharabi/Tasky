@@ -213,7 +213,14 @@ function DailyView({ tasks, selectedDate, today, color, onSubmit }) {
           <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Enjoy your free time</p>
         </div>
       ) : (
-        tasks.map((task) => <TaskCard key={task.id} task={task} onSubmit={() => onSubmit(task)} />)
+        [...tasks]
+          .sort((a, b) => {
+            if (a.due_time && b.due_time) return a.due_time.localeCompare(b.due_time)
+            if (a.due_time) return -1
+            if (b.due_time) return 1
+            return 0
+          })
+          .map((task) => <TaskCard key={task.id} task={task} onSubmit={() => onSubmit(task)} />)
       )}
     </div>
   )

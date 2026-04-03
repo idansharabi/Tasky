@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
 import { Trash2, ChevronLeft, ChevronRight, Star, LayoutList, LayoutGrid } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -24,6 +24,31 @@ const STATUS_STYLE = {
   submitted: { bg: '#dbeafe', color: '#2563eb', label: 'Review' },
   rejected:  { bg: '#fee2e2', color: '#dc2626', label: 'Redo' },
   pending:   { bg: '#f3f4f6', color: '#6b7280', label: 'Pending' },
+}
+
+// ── Timeline constants ────────────────────────────────────────
+const HOUR_START  = 6    // 6 AM
+const HOUR_END    = 22   // 10 PM
+const SLOT_HEIGHT = 96   // px per hour row
+const TIME_COL_W  = 56   // px for time gutter
+const KID_COL_MIN = 160  // px min per kid column
+
+function buildHourSlots() {
+  return Array.from({ length: HOUR_END - HOUR_START }, (_, i) =>
+    String(HOUR_START + i).padStart(2, '0') + ':00'
+  )
+}
+function fmtHour(slot) {
+  const h = parseInt(slot, 10)
+  if (h === 0)  return '12 AM'
+  if (h === 12) return '12 PM'
+  return h < 12 ? `${h} AM` : `${h - 12} PM`
+}
+function slotForTask(task) {
+  if (!task.due_time) return 'anytime'
+  const h = parseInt(task.due_time, 10)
+  if (h < HOUR_START || h >= HOUR_END) return 'anytime'
+  return String(h).padStart(2, '0') + ':00'
 }
 
 // ── Shared: Draggable template card ──────────────────────────
@@ -159,45 +184,10 @@ function DraggableTemplateMobile({ tpl }) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// DAILY VIEW
+// HOURLY TIMELINE (replaces old Daily View)
 // ══════════════════════════════════════════════════════════════
-function DailyKidZone({ kid, tasks, onDelete, isOver }) {
-  const { setNodeRef } = useDroppable({ id: kid.id })
-  return (
-    <div ref={setNodeRef} style={{
-      background: isOver ? kid.avatar_color + '12' : '#fff',
-      borderRadius: '14px',
-      border: isOver ? `2px solid ${kid.avatar_color}` : '1px solid #f3f4f6',
-      boxShadow: isOver ? `0 0 0 4px ${kid.avatar_color}18` : '0 1px 4px rgba(0,0,0,0.04)',
-      transition: 'all 0.15s',
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '10px',
-        padding: '11px 16px',
-        background: kid.avatar_color + '15',
-        borderBottom: `1px solid ${kid.avatar_color}25`,
-      }}>
-        <span style={{ fontSize: '18px' }}>{kid.avatar_emoji}</span>
-        <span style={{ fontWeight: 700, fontSize: '14px', color: '#111827' }}>{kid.name}</span>
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#9ca3af' }}>{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
-        {isOver && <span style={{ fontSize: '12px', color: kid.avatar_color, fontWeight: 600 }}>Drop!</span>}
-      </div>
-      <div style={{ minHeight: '48px' }}>
-        {tasks.length === 0 ? (
-          <div style={{ padding: '14px', textAlign: 'center' }}>
-            <p style={{ fontSize: '13px', color: '#d1d5db', margin: 0 }}>{isOver ? '✨ Release to assign' : 'Drag tasks here'}</p>
-          </div>
-        ) : (
-          tasks.map((task, i) => (
-            <DailyTaskRow key={task.id} task={task} isLast={i === tasks.length - 1} onDelete={onDelete} />
-          ))
-        )}
-      </div>
-    </div>
-  )
-}
 
-function DailyTaskRow({ task, isLast, onDelete }) {
+function TimelineTaskBlock({ task, onDelete, kidColor }) {
   const [hovered, setHovered] = useState(false)
   const st = STATUS_STYLE[task.status] || STATUS_STYLE.pending
   return (
@@ -205,27 +195,182 @@ function DailyTaskRow({ task, isLast, onDelete }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        display: 'flex', alignItems: 'center', gap: '10px',
-        padding: '10px 16px',
-        borderBottom: isLast ? 'none' : '1px solid #f9fafb',
-        background: hovered ? '#fafafa' : 'transparent',
+        display: 'flex', alignItems: 'center', gap: '6px',
+        padding: '5px 8px', borderRadius: '8px', marginBottom: '3px',
+        background: kidColor + '18',
+        borderLeft: `3px solid ${kidColor}`,
+        maxHeight: SLOT_HEIGHT - 16 + 'px',
+        overflow: 'hidden', cursor: 'default', position: 'relative',
       }}
     >
-      <span style={{ fontSize: '16px' }}>{task.icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <p style={{ fontSize: '13px', fontWeight: 500, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</p>
-      </div>
-      <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
-      <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '20px', background: st.bg, color: st.color }}>{st.label}</span>
-      <button onClick={() => onDelete(task)} style={{
-        padding: '5px', borderRadius: '7px', border: 'none',
-        background: hovered ? '#fef2f2' : 'transparent',
-        color: hovered ? '#ef4444' : '#e5e7eb',
-        cursor: 'pointer', display: 'flex',
-        opacity: hovered ? 1 : 0.4, transition: 'all 0.1s',
+      <span style={{ fontSize: '13px', flexShrink: 0 }}>{task.icon}</span>
+      <span style={{ fontSize: '11px', fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {task.title}
+      </span>
+      <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '99px', background: st.bg, color: st.color, flexShrink: 0 }}>
+        {st.label}
+      </span>
+      {hovered && (
+        <button
+          onClick={() => onDelete(task)}
+          style={{ padding: '2px', border: 'none', background: '#fef2f2', borderRadius: '4px', cursor: 'pointer', color: '#ef4444', display: 'flex', flexShrink: 0 }}
+        >
+          <Trash2 size={10} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function TimelineSlotDroppable({ kidId, hourSlot, tasks, onDelete, isOver, kidColor }) {
+  const { setNodeRef } = useDroppable({ id: `${kidId}__${hourSlot}` })
+  const slotTasks = tasks.filter(t => slotForTask(t) === hourSlot)
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        flex: 1, minWidth: KID_COL_MIN + 'px',
+        height: hourSlot === 'anytime' ? undefined : SLOT_HEIGHT + 'px',
+        minHeight: hourSlot === 'anytime' ? '52px' : undefined,
+        padding: '4px 6px',
+        background: isOver ? kidColor + '20' : 'transparent',
+        borderRight: '1px solid #f3f4f6',
+        borderBottom: '1px solid #f3f4f6',
+        transition: 'background 0.12s',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}
+    >
+      {slotTasks.length === 0 ? (
+        isOver ? (
+          <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: '11px', color: kidColor, fontWeight: 600 }}>+ Drop here</span>
+          </div>
+        ) : null
+      ) : (
+        <>
+          {slotTasks.slice(0, 2).map(t => (
+            <TimelineTaskBlock key={t.id} task={t} onDelete={onDelete} kidColor={kidColor} />
+          ))}
+          {slotTasks.length > 2 && (
+            <span style={{ fontSize: '10px', color: '#9ca3af', paddingLeft: '4px' }}>+{slotTasks.length - 2} more</span>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function KidColHeader({ kid }) {
+  return (
+    <div style={{
+      flex: 1, minWidth: KID_COL_MIN + 'px',
+      padding: '10px 12px',
+      background: kid.avatar_color + '15',
+      borderBottom: `2px solid ${kid.avatar_color}40`,
+      borderRight: '1px solid #f3f4f6',
+      display: 'flex', alignItems: 'center', gap: '8px',
+    }}>
+      <span style={{ fontSize: '18px' }}>{kid.avatar_emoji}</span>
+      <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{kid.name}</span>
+    </div>
+  )
+}
+
+function AnytimeRow({ kids, tasks, onDelete, overId }) {
+  return (
+    <div style={{ display: 'flex', borderBottom: '2px solid #e5e7eb' }}>
+      <div style={{
+        width: TIME_COL_W + 'px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+        paddingRight: '10px', paddingTop: '6px', paddingBottom: '6px',
       }}>
-        <Trash2 size={13} />
-      </button>
+        <span style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Any</span>
+      </div>
+      {kids.map(kid => (
+        <TimelineSlotDroppable
+          key={kid.id}
+          kidId={kid.id}
+          hourSlot="anytime"
+          tasks={tasks}
+          onDelete={onDelete}
+          isOver={overId === `${kid.id}__anytime`}
+          kidColor={kid.avatar_color}
+        />
+      ))}
+    </div>
+  )
+}
+
+function HourlyTimeline({ kids, tasks, onDelete, overId }) {
+  const hourSlots = buildHourSlots()
+  const nowSlot = String(new Date().getHours()).padStart(2, '0') + ':00'
+  const currentRowRef = useRef(null)
+
+  useEffect(() => {
+    if (currentRowRef.current) {
+      currentRowRef.current.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    }
+  }, [])
+
+  return (
+    <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto', minHeight: 0 }}>
+      <div style={{ minWidth: TIME_COL_W + kids.length * KID_COL_MIN + 'px' }}>
+
+        {/* Sticky header */}
+        <div style={{
+          display: 'flex', position: 'sticky', top: 0, zIndex: 10,
+          background: '#fafafa', borderBottom: '1px solid #e5e7eb',
+        }}>
+          <div style={{ width: TIME_COL_W + 'px', flexShrink: 0 }} />
+          {kids.map(kid => <KidColHeader key={kid.id} kid={kid} />)}
+        </div>
+
+        {/* Anytime row */}
+        <AnytimeRow kids={kids} tasks={tasks} onDelete={onDelete} overId={overId} />
+
+        {/* Hour rows */}
+        {hourSlots.map((slot, idx) => {
+          const isNow = slot === nowSlot
+          return (
+            <div
+              key={slot}
+              ref={isNow ? currentRowRef : null}
+              style={{
+                display: 'flex', height: SLOT_HEIGHT + 'px',
+                background: isNow ? '#fffbeb' : idx % 2 === 0 ? '#fafafa' : '#fff',
+                borderLeft: isNow ? '2px solid #f59e0b' : 'none',
+              }}
+            >
+              {/* Time label */}
+              <div style={{
+                width: TIME_COL_W + 'px', flexShrink: 0,
+                display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
+                paddingRight: '10px', paddingTop: '6px',
+              }}>
+                <span style={{
+                  fontSize: '11px', color: isNow ? '#f59e0b' : '#9ca3af',
+                  fontWeight: isNow ? 700 : 400,
+                }}>
+                  {fmtHour(slot)}
+                </span>
+              </div>
+              {/* Kid slots */}
+              {kids.map(kid => (
+                <TimelineSlotDroppable
+                  key={kid.id}
+                  kidId={kid.id}
+                  hourSlot={slot}
+                  tasks={tasks}
+                  onDelete={onDelete}
+                  isOver={overId === `${kid.id}__${slot}`}
+                  kidColor={kid.avatar_color}
+                />
+              ))}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -340,7 +485,7 @@ export default function TaskScheduler() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleDrop(kidId, dateStr, tpl) {
+  async function handleDrop(kidId, dateStr, tpl, hourSlot = 'anytime') {
     const { error } = await supabase.from('task_assignments').insert({
       template_id: tpl.id,
       kid_id: kidId,
@@ -349,6 +494,7 @@ export default function TaskScheduler() {
       credit_value: tpl.credit_value,
       icon: tpl.icon,
       due_date: dateStr,
+      due_time: hourSlot === 'anytime' ? null : hourSlot,
       is_recurring: false,
       recurrence_type: null,
       created_by: profile.id,
@@ -356,7 +502,8 @@ export default function TaskScheduler() {
     if (!error) {
       toast.success(`${tpl.icon} assigned!`)
       const kid = kids.find(k => k.id === kidId)
-      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}`)
+      const timeLabel = hourSlot === 'anytime' ? '' : ` at ${fmtHour(hourSlot)}`
+      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}`)
       load()
     } else toast.error(error.message)
   }
@@ -369,8 +516,11 @@ export default function TaskScheduler() {
     const overId = over.id
 
     if (view === 'daily') {
-      // over.id = kidId
-      handleDrop(overId, selectedDate, tpl)
+      // over.id = `${kidId}__${hourSlot}` e.g. "uuid__09:00" or "uuid__anytime"
+      const parts = overId.split('__')
+      const kidId = parts[0]
+      const hourSlot = parts[1] || 'anytime'
+      handleDrop(kidId, selectedDate, tpl, hourSlot)
     } else {
       // over.id = `${kidId}__${dateStr}`
       const [kidId, dateStr] = overId.split('__')
@@ -405,12 +555,6 @@ export default function TaskScheduler() {
     else toast.error(error.message)
   }
 
-  // Determine what's "over" for highlighting
-  function getOverKidId() {
-    if (!overId) return null
-    if (view === 'daily') return overId
-    return null
-  }
   function getOverCellId() {
     if (!overId || view === 'daily') return null
     return overId // `${kidId}__${dateStr}`
@@ -518,24 +662,13 @@ export default function TaskScheduler() {
         }}>
 
           {view === 'daily' ? (
-            // ── Daily view ──────────────────────────────────────────
-            <div style={{ flex: 1, overflowY: 'auto', paddingRight: isMobile ? '0' : '20px', padding: isMobile ? '0 16px 8px' : undefined, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.7px' }}>
-                  {format(new Date(selectedDate + 'T00:00:00'), isMobile ? 'EEE, MMM d' : 'EEEE, MMMM d')}
-                </span>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>{dailyAssignments.length} task{dailyAssignments.length !== 1 ? 's' : ''}</span>
-              </div>
-              {kids.map((kid) => (
-                <DailyKidZone
-                  key={kid.id}
-                  kid={kid}
-                  tasks={dailyAssignments.filter((a) => a.kid_id === kid.id)}
-                  onDelete={setDeleteTarget}
-                  isOver={getOverKidId() === kid.id}
-                />
-              ))}
-            </div>
+            // ── Hourly Timeline ──────────────────────────────────────
+            <HourlyTimeline
+              kids={kids}
+              tasks={dailyAssignments}
+              onDelete={setDeleteTarget}
+              overId={overId}
+            />
           ) : (
             // ── Weekly view ─────────────────────────────────────────
             <div style={{ flex: 1, overflowX: 'auto', overflowY: 'auto' }}>

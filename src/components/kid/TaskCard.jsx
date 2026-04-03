@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { CheckCircle, Clock, AlertCircle, XCircle, Camera, Star } from 'lucide-react'
 
+function formatTimeLabel(t) {
+  const [hStr, mStr] = t.split(':')
+  const h = parseInt(hStr, 10)
+  if (h === 0)  return `12:${mStr} AM`
+  if (h === 12) return `12:${mStr} PM`
+  return h < 12 ? `${h}:${mStr} AM` : `${h - 12}:${mStr} PM`
+}
+
 const STATUS_CONFIG = {
   pending: {
     bg: '#fff',
@@ -91,6 +99,12 @@ export default function TaskCard({ task, onSubmit }) {
             <Star size={11} style={{ color: '#f59e0b', fill: '#f59e0b' }} />
             <span style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value} credits</span>
           </div>
+          {task.due_time && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+              <Clock size={11} style={{ color: '#9ca3af' }} />
+              <span style={{ fontSize: '12px', color: '#9ca3af' }}>{formatTimeLabel(task.due_time)}</span>
+            </div>
+          )}
         </div>
       </div>
 
