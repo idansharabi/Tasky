@@ -156,45 +156,144 @@ export default function ParentDashboard({ onNavigate }) {
         {kids.length === 0 ? (
           <EmptyBox text="No kids yet. They'll appear once they sign up with the Kid role." />
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-            {kids.map(kid => {
-              const kidTasks = todayAssignments.filter(t => t.kid_id === kid.id)
-              const done = kidTasks.filter(t => t.status === 'approved').length
-              const pct = kidTasks.length ? Math.round((done / kidTasks.length) * 100) : 0
-              return (
-                <div key={kid.id} style={{
-                  background: '#fff', borderRadius: '14px',
-                  border: '1px solid #e5e7eb',
-                  borderTop: `3px solid ${kid.avatar_color}`,
-                  padding: '20px',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '26px' }}>{kid.avatar_emoji}</span>
-                      <div>
-                        <p style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{kid.name}</p>
-                        <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{done}/{kidTasks.length} today</p>
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+              {kids.map(kid => {
+                const kidTasks = todayAssignments.filter(t => t.kid_id === kid.id)
+                const done = kidTasks.filter(t => t.status === 'approved').length
+                const pct = kidTasks.length ? Math.round((done / kidTasks.length) * 100) : 0
+                return (
+                  <div key={kid.id} style={{
+                    background: '#fff', borderRadius: '14px',
+                    border: '1px solid #e5e7eb',
+                    borderTop: `3px solid ${kid.avatar_color}`,
+                    padding: '20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '26px' }}>{kid.avatar_emoji}</span>
+                        <div>
+                          <p style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{kid.name}</p>
+                          <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{done}/{kidTasks.length} today</p>
+                        </div>
                       </div>
+                      <button onClick={() => setManualCreditKid(kid)} title="Adjust credits"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '4px' }}>
+                        <TrendingUp size={14} />
+                      </button>
                     </div>
-                    <button onClick={() => setManualCreditKid(kid)} title="Adjust credits"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d1d5db', padding: '4px' }}>
-                      <TrendingUp size={14} />
-                    </button>
+                    {/* Progress bar */}
+                    <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '99px', marginBottom: '12px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pct}%`, background: kid.avatar_color, borderRadius: '99px', transition: 'width 0.6s ease' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <Star size={13} fill="#fbbf24" color="#fbbf24" />
+                      <span style={{ fontWeight: 700, fontSize: '15px', color: '#111827' }}>{kid.balance}</span>
+                      <span style={{ fontSize: '13px', color: '#9ca3af' }}>credits</span>
+                    </div>
                   </div>
-                  {/* Progress bar */}
-                  <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '99px', marginBottom: '12px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${pct}%`, background: kid.avatar_color, borderRadius: '99px', transition: 'width 0.6s ease' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <Star size={13} fill="#fbbf24" color="#fbbf24" />
-                    <span style={{ fontWeight: 700, fontSize: '15px', color: '#111827' }}>{kid.balance}</span>
-                    <span style={{ fontSize: '13px', color: '#9ca3af' }}>credits</span>
+                )
+              })}
+            </div>
+
+            {/* Pending review per kid */}
+            {pendingSubmissions.length > 0 && (() => {
+              // Group pending by kid
+              const byKid = kids
+                .map(kid => ({
+                  kid,
+                  tasks: pendingSubmissions.filter(t => t.kid_id === kid.id),
+                }))
+                .filter(({ tasks }) => tasks.length > 0)
+
+              if (byKid.length === 0) return null
+              return (
+                <div style={{ marginTop: '24px' }}>
+                  <p style={{ fontSize: '12px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '0 0 12px' }}>
+                    Pending review
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {byKid.map(({ kid, tasks }) => (
+                      <div key={kid.id} style={{
+                        background: '#fff', borderRadius: '12px',
+                        border: '1px solid #e5e7eb',
+                        borderLeft: `3px solid ${kid.avatar_color}`,
+                        overflow: 'hidden',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                      }}>
+                        {/* Kid header row */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', gap: '8px',
+                          padding: '10px 16px',
+                          background: kid.avatar_color + '0d',
+                          borderBottom: '1px solid #f3f4f6',
+                        }}>
+                          <span style={{ fontSize: '18px' }}>{kid.avatar_emoji}</span>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{kid.name}</span>
+                          <span style={{
+                            fontSize: '11px', fontWeight: 600, color: kid.avatar_color,
+                            background: kid.avatar_color + '20', borderRadius: '99px', padding: '2px 8px', marginLeft: '2px',
+                          }}>
+                            {tasks.length} pending
+                          </span>
+                        </div>
+                        {/* Tasks table */}
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <tbody>
+                            {tasks.map((task, i) => {
+                              const sub = task.task_submissions?.[0]
+                              return (
+                                <tr key={task.id} style={{ borderBottom: i < tasks.length - 1 ? '1px solid #f9fafb' : 'none' }}>
+                                  <td style={{ padding: '11px 16px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ fontSize: '16px' }}>{task.icon}</span>
+                                      <div>
+                                        <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>{task.title}</p>
+                                        {sub?.ai_reasoning && (
+                                          <p style={{ fontSize: '11px', color: sub.ai_approved ? '#16a34a' : '#d97706', margin: '2px 0 0' }}>
+                                            AI {sub.ai_approved ? '✓' : '?'} {sub.ai_reasoning}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                      <Star size={11} fill="#f59e0b" color="#f59e0b" />
+                                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#6b7280' }}>+{task.credit_value}</span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '11px 16px', whiteSpace: 'nowrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      {sub?.photo_url && (
+                                        <button onClick={() => setReviewItem(task)}
+                                          style={{ fontSize: '12px', padding: '5px 10px', border: '1px solid #e5e7eb', borderRadius: '7px', background: '#fff', cursor: 'pointer', color: '#374151', fontWeight: 500 }}>
+                                          Photo
+                                        </button>
+                                      )}
+                                      <button onClick={() => handleReject(task)}
+                                        style={{ width: '28px', height: '28px', border: '1px solid #fee2e2', borderRadius: '7px', background: '#fef2f2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <XCircle size={14} color="#ef4444" />
+                                      </button>
+                                      <button onClick={() => handleApprove(task)}
+                                        style={{ width: '28px', height: '28px', border: '1px solid #bbf7d0', borderRadius: '7px', background: '#f0fdf4', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <CheckCircle size={14} color="#16a34a" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )
-            })}
-          </div>
+            })()}
+          </>
         )}
       </Section>
 
