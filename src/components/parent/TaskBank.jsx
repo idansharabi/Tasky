@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import Modal from '../shared/Modal'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import { logAction } from '../../lib/audit'
 
 const ICONS = ['⭐', '🧹', '🍽️', '🛏️', '📚', '🐕', '🌱', '🏠', '🧺', '🚿', '🦷', '🥗', '🗑️', '🪣', '🧴', '📦', '🎒', '💪', '🎯', '🏆']
 
@@ -67,7 +68,11 @@ export default function TaskBank() {
     setSaving(true)
     const rows = DEFAULTS.map((d) => ({ ...d, created_by: profile.id }))
     const { error } = await supabase.from('task_templates').insert(rows)
-    if (!error) { toast.success('Default tasks added!'); load() }
+    if (!error) {
+      toast.success('Default tasks added!')
+      logAction(profile, 'Task bank seeded', 'task_template', `${DEFAULTS.length} default tasks loaded`)
+      load()
+    }
     setSaving(false)
   }
 
@@ -84,8 +89,11 @@ export default function TaskBank() {
         icon: form.icon,
         created_by: profile.id,
       })
-      if (!error) { toast.success('Task added to bank'); setModal(null); load() }
-      else toast.error(error.message)
+      if (!error) {
+        toast.success('Task added to bank')
+        logAction(profile, 'Task template created', 'task_template', `${form.icon} "${form.title.trim()}" · ${form.credit_value} credits`)
+        setModal(null); load()
+      } else toast.error(error.message)
     } else {
       const { error } = await supabase.from('task_templates').update({
         title: form.title.trim(),
@@ -93,15 +101,22 @@ export default function TaskBank() {
         credit_value: Number(form.credit_value),
         icon: form.icon,
       }).eq('id', modal.id)
-      if (!error) { toast.success('Task updated'); setModal(null); load() }
-      else toast.error(error.message)
+      if (!error) {
+        toast.success('Task updated')
+        logAction(profile, 'Task template updated', 'task_template', `${form.icon} "${form.title.trim()}" · ${form.credit_value} credits`)
+        setModal(null); load()
+      } else toast.error(error.message)
     }
     setSaving(false)
   }
 
   async function handleDelete() {
     const { error } = await supabase.from('task_templates').delete().eq('id', deleteTarget.id)
-    if (!error) { toast.success('Task removed'); load() }
+    if (!error) {
+      toast.success('Task removed')
+      logAction(profile, 'Task template deleted', 'task_template', `${deleteTarget.icon} "${deleteTarget.title}"`)
+      load()
+    }
     setDeleteTarget(null)
   }
 

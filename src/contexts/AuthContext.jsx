@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { registerPushNotifications } from '../lib/notifications'
+import { logAction } from '../lib/audit'
 
 const AuthContext = createContext(null)
 
@@ -16,20 +17,25 @@ export function AuthProvider({ children }) {
       else setLoading(false)
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) fetchProfile(session.user.id)
+      if (session?.user) fetchProfile(session.user.id, event)
       else { setProfile(null); setLoading(false) }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchProfile(userId) {
+  async function fetchProfile(userId, event) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
     setProfile(data)
     setLoading(false)
-    if (data) registerPushNotifications(userId)
+    if (data) {
+      registerPushNotifications(userId)
+      if (event === 'SIGNED_IN') {
+        logAction(data, 'User logged in', 'auth', `${data.role} · ${new Date().toLocaleString()}`)
+      }
+    }
   }
 
   async function signIn(email, password) {
@@ -38,6 +44,7 @@ export function AuthProvider({ children }) {
   }
 
   async function signOut() {
+    if (profile) logAction(profile, 'User logged out', 'auth', `${profile.role}`)
     await supabase.auth.signOut()
   }
 
