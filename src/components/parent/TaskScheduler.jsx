@@ -224,7 +224,7 @@ function TimelineTaskBlock({ task, onDelete, kidColor }) {
 
 function TimelineSlotDroppable({ kidId, hourSlot, tasks, onDelete, isOver, kidColor }) {
   const { setNodeRef } = useDroppable({ id: `${kidId}__${hourSlot}` })
-  const slotTasks = tasks.filter(t => slotForTask(t) === hourSlot)
+  const slotTasks = tasks.filter(t => t.kid_id === kidId && slotForTask(t) === hourSlot)
   return (
     <div
       ref={setNodeRef}
