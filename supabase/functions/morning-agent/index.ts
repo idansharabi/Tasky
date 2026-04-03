@@ -123,15 +123,26 @@ Deno.serve(async (req) => {
 
     // ── 5. Notify parents with a summary ──────────────────────
     const totalTasks = todayTasks?.length || 0
-    const kidCount = Object.keys(kidTaskMap).length
 
-    if (parents?.length && totalTasks > 0) {
+    if (parents?.length) {
       const parentIds = parents.map((p: any) => p.id)
+
+      const kidLines = (kids || [])
+        .map((kid: any) => {
+          const count = kidTaskMap[kid.id] || 0
+          return count > 0 ? `${kid.avatar_emoji} ${kid.name}: ${count} task${count !== 1 ? 's' : ''}` : null
+        })
+        .filter(Boolean)
+
+      const bodyText = kidLines.length > 0
+        ? kidLines.join(' · ')
+        : 'No tasks scheduled for today.'
+
       await sendPush(
         supabase,
         parentIds,
-        `Good morning! ☀️ Tasky`,
-        `${totalTasks} task${totalTasks !== 1 ? 's' : ''} assigned across ${kidCount} kid${kidCount !== 1 ? 's' : ''} today.`
+        `Good morning! ☀️ ${totalTasks} task${totalTasks !== 1 ? 's' : ''} today`,
+        bodyText
       )
     }
 
