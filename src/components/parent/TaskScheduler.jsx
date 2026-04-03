@@ -169,7 +169,7 @@ function DailyKidZone({ kid, tasks, onDelete, isOver }) {
       borderRadius: '14px',
       border: isOver ? `2px solid ${kid.avatar_color}` : '1px solid #f3f4f6',
       boxShadow: isOver ? `0 0 0 4px ${kid.avatar_color}18` : '0 1px 4px rgba(0,0,0,0.04)',
-      overflow: 'hidden', transition: 'all 0.15s',
+      transition: 'all 0.15s',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: '10px',
