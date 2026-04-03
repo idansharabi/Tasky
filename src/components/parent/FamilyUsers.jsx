@@ -11,7 +11,7 @@ export default function FamilyUsers() {
   useEffect(() => {
     async function load() {
       const [profilesRes, balancesRes] = await Promise.all([
-        supabase.from('profiles').select('*').order('role').order('name'),
+        supabase.from('profiles_with_email').select('*').order('role').order('name'),
         supabase.from('kid_balances').select('id, balance'),
       ])
       setUsers(profilesRes.data || [])
@@ -93,6 +93,10 @@ function UserRow({ user, isLast, balance }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: '15px', fontWeight: 600, color: '#111827', margin: 0 }}>{user.name}</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '3px', flexWrap: 'wrap' }}>
+          {user.email && (
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>{user.email}</span>
+          )}
+          <span style={{ fontSize: '12px', color: '#d1d5db' }}>·</span>
           <span style={{ fontSize: '12px', color: '#9ca3af' }}>
             Joined {user.created_at ? format(new Date(user.created_at), 'MMM d, yyyy') : '—'}
           </span>

@@ -17,6 +17,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import ConfirmDialog from '../shared/ConfirmDialog'
+import { logAction } from '../../lib/audit'
 
 const STATUS_STYLE = {
   approved:  { bg: '#dcfce7', color: '#16a34a', label: 'Done' },
@@ -352,8 +353,12 @@ export default function TaskScheduler() {
       recurrence_type: null,
       created_by: profile.id,
     })
-    if (!error) { toast.success(`${tpl.icon} assigned!`); load() }
-    else toast.error(error.message)
+    if (!error) {
+      toast.success(`${tpl.icon} assigned!`)
+      const kid = kids.find(k => k.id === kidId)
+      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}`)
+      load()
+    } else toast.error(error.message)
   }
 
   function onDragEnd({ active, over }) {
@@ -375,7 +380,11 @@ export default function TaskScheduler() {
 
   async function handleDelete() {
     const { error } = await supabase.from('task_assignments').delete().eq('id', deleteTarget.id)
-    if (!error) { toast.success('Task removed'); load() }
+    if (!error) {
+      toast.success('Task removed')
+      logAction(profile, 'Task removed', 'task', `"${deleteTarget.title}" on ${deleteTarget.due_date}`)
+      load()
+    }
     setDeleteTarget(null)
   }
 

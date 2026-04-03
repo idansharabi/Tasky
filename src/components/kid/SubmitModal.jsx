@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { analyzeTaskPhoto } from '../../lib/gemini'
 import { useAuth } from '../../contexts/AuthContext'
 import { sendPush } from '../../lib/notifications'
+import { logAction } from '../../lib/audit'
 
 export default function SubmitModal({ task, onClose, onDone }) {
   const { profile } = useAuth()
@@ -111,6 +112,10 @@ export default function SubmitModal({ task, onClose, onDone }) {
         toast.success('Submitted! Waiting for parent to review.')
       }
     }
+    // Audit log
+    const autoApproved = aiVerdict?.approved === true && aiVerdict?.confidence === 'high'
+    logAction(profile, autoApproved ? 'Task auto-approved' : 'Task submitted', 'task', `"${task.title}" · ${autoApproved ? `+${task.credit_value} credits` : 'awaiting review'}`)
+
     // Notify parents
     const { data: parents } = await supabase.from('profiles').select('id').eq('role', 'parent')
     if (parents?.length) {
