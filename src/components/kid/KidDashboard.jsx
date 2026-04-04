@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Star, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react'
+import { Star, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle, LayoutList, LayoutGrid } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import SubmitModal from './SubmitModal'
@@ -58,6 +58,7 @@ function getLevelProgress(bal) {
 
 export default function KidDashboard() {
   const { profile } = useAuth()
+  const [view, setView] = useState('daily')
   const [allTasks, setAllTasks] = useState([])
   const [balance, setBalance] = useState(0)
   const [streak] = useState(0)
@@ -117,72 +118,99 @@ export default function KidDashboard() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingBottom: '40px' }}>
 
-      {/* ── My Tasks — two-column layout ── */}
-      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+      {/* ── My Tasks ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
-        {/* Left: calendar + timeline */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
-
-          {/* Week nav */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button onClick={() => setWeekAnchor(w => subWeeks(w, 1))}
-              style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
-              <ChevronLeft size={15} />
-            </button>
-            <span style={{ flex: 1, textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-              {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d')}
-            </span>
-            <button onClick={() => setWeekAnchor(w => addWeeks(w, 1))}
-              style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
-              <ChevronRight size={15} />
-            </button>
-          </div>
-
-          {/* Day strip */}
-          <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
-            {weekDays.map(day => {
-              const dayStr    = format(day, 'yyyy-MM-dd')
-              const isToday_  = dayStr === today
-              const isSel     = dayStr === selectedDate
-              const dayTasks  = allTasks.filter(t => t.due_date === dayStr)
-              const done      = dayTasks.filter(t => t.status === 'approved').length
-              const total     = dayTasks.length
-              return (
-                <button key={dayStr} onClick={() => setSelectedDate(dayStr)} style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  padding: '10px 10px 8px', borderRadius: '14px', minWidth: '44px',
-                  flexShrink: 0, cursor: 'pointer', border: 'none',
-                  background: isSel ? color : isToday_ ? color + '18' : '#fff',
-                  boxShadow: isSel ? `0 2px 8px ${color}40` : '0 1px 3px rgba(0,0,0,0.06)',
-                  outline: !isSel && isToday_ ? `2px solid ${color}40` : 'none',
+        {/* Toggle row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>My Tasks</h2>
+          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
+            {[{ id: 'daily', icon: LayoutList, label: 'Day' }, { id: 'weekly', icon: LayoutGrid, label: 'Week' }].map(({ id, icon: Icon, label }) => (
+              <button key={id} onClick={() => { setView(id); if (id === 'daily') setSelectedDate(today) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '6px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                  fontSize: '12px', fontWeight: 600,
+                  background: view === id ? '#fff' : 'transparent',
+                  color: view === id ? '#111827' : '#9ca3af',
+                  boxShadow: view === id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                 }}>
-                  <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: isSel ? 'rgba(255,255,255,0.8)' : '#9ca3af' }}>
-                    {format(day, 'EEE')}
-                  </span>
-                  <span style={{ fontSize: '17px', fontWeight: 700, marginTop: '2px', color: isSel ? '#fff' : isToday_ ? color : '#111827' }}>
-                    {format(day, 'd')}
-                  </span>
-                  <div style={{ display: 'flex', gap: '3px', marginTop: '5px', height: '6px', alignItems: 'center' }}>
-                    {total === 0 ? (
-                      <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: isSel ? 'rgba(255,255,255,0.3)' : '#e5e7eb' }} />
-                    ) : (
-                      Array.from({ length: Math.min(total, 4) }).map((_, i) => (
-                        <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%',
-                          background: i < done ? (isSel ? '#fff' : '#22c55e') : (isSel ? 'rgba(255,255,255,0.35)' : '#e5e7eb') }} />
-                      ))
-                    )}
-                  </div>
-                </button>
-              )
-            })}
+                <Icon size={13} /> {label}
+              </button>
+            ))}
           </div>
-
-          {/* Hourly timeline */}
-          <HourlyTimeline tasks={selectedTasks} selectedDate={selectedDate} today={today} color={color} onSubmit={setSubmitting} />
         </div>
 
-        {/* Right: Today's Tasks card */}
-        <TodayCard tasks={todayTasks} today={today} color={color} pct={pctToday} onSubmit={setSubmitting} />
+        {/* Weekly-only: week nav + day strip */}
+        {view === 'weekly' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button onClick={() => setWeekAnchor(w => subWeeks(w, 1))}
+                style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
+                <ChevronLeft size={15} />
+              </button>
+              <span style={{ flex: 1, textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+                {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d')}
+              </span>
+              <button onClick={() => setWeekAnchor(w => addWeeks(w, 1))}
+                style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
+                <ChevronRight size={15} />
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {weekDays.map(day => {
+                const dayStr   = format(day, 'yyyy-MM-dd')
+                const isToday_ = dayStr === today
+                const isSel    = dayStr === selectedDate
+                const dayTasks = allTasks.filter(t => t.due_date === dayStr)
+                const done     = dayTasks.filter(t => t.status === 'approved').length
+                const total    = dayTasks.length
+                return (
+                  <button key={dayStr} onClick={() => setSelectedDate(dayStr)} style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    padding: '10px 10px 8px', borderRadius: '14px', minWidth: '44px',
+                    flexShrink: 0, cursor: 'pointer', border: 'none',
+                    background: isSel ? color : isToday_ ? color + '18' : '#fff',
+                    boxShadow: isSel ? `0 2px 8px ${color}40` : '0 1px 3px rgba(0,0,0,0.06)',
+                    outline: !isSel && isToday_ ? `2px solid ${color}40` : 'none',
+                  }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: isSel ? 'rgba(255,255,255,0.8)' : '#9ca3af' }}>
+                      {format(day, 'EEE')}
+                    </span>
+                    <span style={{ fontSize: '17px', fontWeight: 700, marginTop: '2px', color: isSel ? '#fff' : isToday_ ? color : '#111827' }}>
+                      {format(day, 'd')}
+                    </span>
+                    <div style={{ display: 'flex', gap: '3px', marginTop: '5px', height: '6px', alignItems: 'center' }}>
+                      {total === 0 ? (
+                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: isSel ? 'rgba(255,255,255,0.3)' : '#e5e7eb' }} />
+                      ) : (
+                        Array.from({ length: Math.min(total, 4) }).map((_, i) => (
+                          <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%',
+                            background: i < done ? (isSel ? '#fff' : '#22c55e') : (isSel ? 'rgba(255,255,255,0.35)' : '#e5e7eb') }} />
+                        ))
+                      )}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Timeline + Today card side by side */}
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <HourlyTimeline
+              tasks={selectedTasks}
+              selectedDate={view === 'daily' ? today : selectedDate}
+              today={today}
+              color={color}
+              onSubmit={setSubmitting}
+            />
+          </div>
+          <TodayCard tasks={todayTasks} color={color} pct={pctToday} onSubmit={setSubmitting} />
+        </div>
       </div>
 
       {/* ── Summary ── */}
