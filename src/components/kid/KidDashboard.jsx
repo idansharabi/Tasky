@@ -95,101 +95,95 @@ export default function KidDashboard() {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '32px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
 
-      {/* Stats row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-        {[
-          { top: <><Star size={13} style={{ color: '#f59e0b', fill: '#f59e0b' }} /><span style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>{balance}</span></>, label: 'Credits' },
-          { top: <span style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>{completedToday}/{todayTasks.length}</span>, label: 'Done today' },
-          { top: <><Flame size={13} style={{ color: '#f97316' }} /><span style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>{streak}</span></>, label: 'Day streak' },
-        ].map((stat, i) => (
-          <div key={i} style={{ background: '#fff', borderRadius: '14px', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '14px 12px', textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginBottom: '4px' }}>{stat.top}</div>
-            <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{stat.label}</p>
+      {/* ── My Tasks ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>My Tasks</h2>
+          <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
+            {[{ id: 'daily', icon: LayoutList, label: 'Day' }, { id: 'weekly', icon: LayoutGrid, label: 'Week' }].map(({ id, icon: Icon, label }) => (
+              <button
+                key={id}
+                onClick={() => { setView(id); if (id === 'daily') setSelectedDate(today) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '5px',
+                  padding: '6px 12px', borderRadius: '8px', border: 'none',
+                  fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                  background: view === id ? '#fff' : 'transparent',
+                  color: view === id ? '#111827' : '#9ca3af',
+                  boxShadow: view === id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                }}
+              >
+                <Icon size={13} /> {label}
+              </button>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {view === 'daily' ? (
+          <DailyView tasks={selectedTasks} selectedDate={selectedDate} today={today} color={color} onSubmit={setSubmitting} />
+        ) : (
+          <WeeklyView
+            weekDays={weekDays} allTasks={allTasks} today={today} color={color}
+            selectedDate={selectedDate} onSelectDay={(d) => setSelectedDate(d)}
+            onPrevWeek={() => setWeekAnchor((w) => subWeeks(w, 1))}
+            onNextWeek={() => setWeekAnchor((w) => addWeeks(w, 1))}
+            weekStart={weekStart} onSubmit={setSubmitting}
+          />
+        )}
       </div>
 
-      {/* Level card */}
-      <div style={{ borderRadius: '16px', padding: '18px 20px', background: `linear-gradient(135deg, ${level.color}, ${level.color}cc)`, color: '#fff' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <div>
-            <p style={{ fontSize: '12px', fontWeight: 500, opacity: 0.8, margin: '0 0 3px' }}>Your Level</p>
-            <p style={{ fontSize: '19px', fontWeight: 700, margin: 0 }}>{level.emoji} {level.label}</p>
-          </div>
-          <Trophy size={28} style={{ opacity: 0.5 }} />
-        </div>
-        <div style={{ height: '7px', background: 'rgba(255,255,255,0.3)', borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ height: '100%', background: '#fff', borderRadius: '4px', width: `${levelPct}%`, transition: 'width 0.7s ease' }} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
-          <span style={{ fontSize: '11px', opacity: 0.7 }}>{balance} credits</span>
-          {LEVELS[level.index + 1] && <span style={{ fontSize: '11px', opacity: 0.7 }}>{LEVELS[level.index + 1].min} for {LEVELS[level.index + 1].emoji}</span>}
-        </div>
-      </div>
+      {/* ── Summary ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>Summary</h2>
 
-      {/* Today's progress bar (always visible) */}
-      {todayTasks.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '14px 16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <p style={{ fontSize: '13px', fontWeight: 600, color: '#374151', margin: 0 }}>Today's Progress</p>
-            <p style={{ fontSize: '13px', fontWeight: 700, color, margin: 0 }}>{pctToday}%</p>
-          </div>
-          <div style={{ height: '8px', background: '#f3f4f6', borderRadius: '4px', overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: color, borderRadius: '4px', width: `${pctToday}%`, transition: 'width 0.7s ease' }} />
-          </div>
-          {pctToday === 100 && <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, textAlign: 'center', marginTop: '8px' }}>🎉 All done! Amazing work!</p>}
-        </div>
-      )}
-
-      {/* View toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#374151', margin: 0 }}>My Tasks</h2>
-        <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
-          {[{ id: 'daily', icon: LayoutList, label: 'Day' }, { id: 'weekly', icon: LayoutGrid, label: 'Week' }].map(({ id, icon: Icon, label }) => (
-            <button
-              key={id}
-              onClick={() => { setView(id); if (id === 'daily') setSelectedDate(today) }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                padding: '6px 12px', borderRadius: '8px', border: 'none',
-                fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                background: view === id ? '#fff' : 'transparent',
-                color: view === id ? '#111827' : '#9ca3af',
-                boxShadow: view === id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-              }}
-            >
-              <Icon size={13} /> {label}
-            </button>
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+          {[
+            { top: <><Star size={13} style={{ color: '#f59e0b', fill: '#f59e0b' }} /><span style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>{balance}</span></>, label: 'Credits' },
+            { top: <span style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>{completedToday}/{todayTasks.length}</span>, label: 'Done today' },
+            { top: <><Flame size={13} style={{ color: '#f97316' }} /><span style={{ fontSize: '20px', fontWeight: 700, color: '#111827' }}>{streak}</span></>, label: 'Day streak' },
+          ].map((stat, i) => (
+            <div key={i} style={{ background: '#fff', borderRadius: '14px', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '14px 12px', textAlign: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginBottom: '4px' }}>{stat.top}</div>
+              <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{stat.label}</p>
+            </div>
           ))}
         </div>
-      </div>
 
-      {view === 'daily' ? (
-        // ── Daily view ──────────────────────────────────────────
-        <DailyView
-          tasks={selectedTasks}
-          selectedDate={selectedDate}
-          today={today}
-          color={color}
-          onSubmit={setSubmitting}
-        />
-      ) : (
-        // ── Weekly view ─────────────────────────────────────────
-        <WeeklyView
-          weekDays={weekDays}
-          allTasks={allTasks}
-          today={today}
-          color={color}
-          selectedDate={selectedDate}
-          onSelectDay={(d) => setSelectedDate(d)}
-          onPrevWeek={() => setWeekAnchor((w) => subWeeks(w, 1))}
-          onNextWeek={() => setWeekAnchor((w) => addWeeks(w, 1))}
-          weekStart={weekStart}
-          onSubmit={setSubmitting}
-        />
-      )}
+        {/* Today's progress */}
+        {todayTasks.length > 0 && (
+          <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: '#374151', margin: 0 }}>Today's Progress</p>
+              <p style={{ fontSize: '13px', fontWeight: 700, color, margin: 0 }}>{pctToday}%</p>
+            </div>
+            <div style={{ height: '8px', background: '#f3f4f6', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: color, borderRadius: '4px', width: `${pctToday}%`, transition: 'width 0.7s ease' }} />
+            </div>
+            {pctToday === 100 && <p style={{ fontSize: '13px', color: '#16a34a', fontWeight: 600, textAlign: 'center', marginTop: '8px' }}>🎉 All done! Amazing work!</p>}
+          </div>
+        )}
+
+        {/* Level card */}
+        <div style={{ borderRadius: '16px', padding: '18px 20px', background: `linear-gradient(135deg, ${level.color}, ${level.color}cc)`, color: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div>
+              <p style={{ fontSize: '12px', fontWeight: 500, opacity: 0.8, margin: '0 0 3px' }}>Your Level</p>
+              <p style={{ fontSize: '19px', fontWeight: 700, margin: 0 }}>{level.emoji} {level.label}</p>
+            </div>
+            <Trophy size={28} style={{ opacity: 0.5 }} />
+          </div>
+          <div style={{ height: '7px', background: 'rgba(255,255,255,0.3)', borderRadius: '4px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: '#fff', borderRadius: '4px', width: `${levelPct}%`, transition: 'width 0.7s ease' }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px' }}>
+            <span style={{ fontSize: '11px', opacity: 0.7 }}>{balance} credits</span>
+            {LEVELS[level.index + 1] && <span style={{ fontSize: '11px', opacity: 0.7 }}>{LEVELS[level.index + 1].min} for {LEVELS[level.index + 1].emoji}</span>}
+          </div>
+        </div>
+      </div>
 
       {submitting && (
         <SubmitModal task={submitting} onClose={() => setSubmitting(null)} onDone={load} />
