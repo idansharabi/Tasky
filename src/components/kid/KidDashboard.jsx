@@ -1,10 +1,41 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
 import { Star, Flame, Trophy, LayoutList, LayoutGrid, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import TaskCard from './TaskCard'
 import SubmitModal from './SubmitModal'
+
+// ── Timeline constants ────────────────────────────────────────
+const HOUR_START  = 6
+const HOUR_END    = 22
+const SLOT_HEIGHT = 80   // px per hour row (slightly compact for single-col)
+const TIME_COL_W  = 52
+
+function buildHourSlots() {
+  return Array.from({ length: HOUR_END - HOUR_START }, (_, i) =>
+    String(HOUR_START + i).padStart(2, '0') + ':00'
+  )
+}
+function fmtHour(slot) {
+  const h = parseInt(slot, 10)
+  if (h === 0)  return '12 AM'
+  if (h === 12) return '12 PM'
+  return h < 12 ? `${h} AM` : `${h - 12} PM`
+}
+function slotForTask(task) {
+  if (!task.due_time) return 'anytime'
+  const h = parseInt(task.due_time, 10)
+  if (h < HOUR_START || h >= HOUR_END) return 'anytime'
+  return String(h).padStart(2, '0') + ':00'
+}
+
+const TASK_STATUS_STYLE = {
+  pending:   { bg: '#f3f4f6', border: '#d1d5db', color: '#374151', label: 'To Do' },
+  submitted: { bg: '#dbeafe', border: '#93c5fd', color: '#1d4ed8', label: 'Waiting…' },
+  approved:  { bg: '#dcfce7', border: '#86efac', color: '#15803d', label: 'Done ✓' },
+  rejected:  { bg: '#fee2e2', border: '#fca5a5', color: '#b91c1c', label: 'Redo' },
+}
 
 const LEVELS = [
   { min: 0,    label: 'Beginner',  emoji: '🌱', color: '#22c55e' },
@@ -192,29 +223,131 @@ export default function KidDashboard() {
   )
 }
 
-// ── Daily view ────────────────────────────────────────────────
+// ── Daily Timeline view ───────────────────────────────────────
 function DailyView({ tasks, selectedDate, today, color, onSubmit }) {
   const isToday = selectedDate === today
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-      <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
-        {isToday ? 'Today — ' : ''}{format(new Date(selectedDate + 'T00:00:00'), 'EEEE, MMMM d')}
-      </p>
-      {tasks.length === 0 ? (
+  const scrollRef = useRef(null)
+  const hourSlots = buildHourSlots()
+
+  const anytimeTasks = tasks.filter(t => slotForTask(t) === 'anytime')
+  const timedTasks   = tasks.filter(t => slotForTask(t) !== 'anytime')
+
+  // Scroll to current hour (or first task) on mount
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const nowH = new Date().getHours()
+    const targetH = isToday ? Math.max(nowH - 1, HOUR_START) : HOUR_START
+    const idx = Math.max(0, targetH - HOUR_START)
+    scrollRef.current.scrollTop = idx * SLOT_HEIGHT
+  }, [selectedDate])
+
+  const dateLabel = (isToday ? 'Today — ' : '') + format(new Date(selectedDate + 'T00:00:00'), 'EEEE, MMMM d')
+
+  if (tasks.length === 0) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{dateLabel}</p>
         <div style={{ background: '#fff', borderRadius: '16px', border: '2px dashed #e5e7eb', padding: '40px 24px', textAlign: 'center' }}>
           <div style={{ fontSize: '36px', marginBottom: '10px' }}>🎉</div>
           <p style={{ fontSize: '14px', fontWeight: 600, color: '#374151', margin: 0 }}>{isToday ? 'No tasks today!' : 'No tasks this day'}</p>
           <p style={{ fontSize: '12px', color: '#9ca3af', marginTop: '4px' }}>Enjoy your free time</p>
         </div>
-      ) : (
-        [...tasks]
-          .sort((a, b) => {
-            if (a.due_time && b.due_time) return a.due_time.localeCompare(b.due_time)
-            if (a.due_time) return -1
-            if (b.due_time) return 1
-            return 0
-          })
-          .map((task) => <TaskCard key={task.id} task={task} onSubmit={() => onSubmit(task)} />)
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{dateLabel}</p>
+    <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+
+      {/* Anytime row */}
+      {anytimeTasks.length > 0 && (
+        <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{
+            width: TIME_COL_W + 'px', flexShrink: 0, padding: '8px 6px',
+            fontSize: '10px', fontWeight: 700, color: '#9ca3af', textAlign: 'right',
+            borderRight: '1px solid #f3f4f6', background: '#fafafa',
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end',
+          }}>
+            anytime
+          </div>
+          <div style={{ flex: 1, padding: '6px 8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {anytimeTasks.map(t => (
+              <TimelineTaskPill key={t.id} task={t} color={color} onSubmit={onSubmit} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Scrollable hourly grid */}
+      <div ref={scrollRef} style={{ overflowY: 'auto', maxHeight: '480px' }}>
+        {hourSlots.map(slot => {
+          const slotTasks = timedTasks.filter(t => slotForTask(t) === slot)
+          const nowH = new Date().getHours()
+          const slotH = parseInt(slot, 10)
+          const isCurrent = isToday && nowH === slotH
+          return (
+            <div key={slot} style={{
+              display: 'flex', height: SLOT_HEIGHT + 'px',
+              background: isCurrent ? '#fffbeb' : 'transparent',
+              borderLeft: isCurrent ? `3px solid #f59e0b` : '3px solid transparent',
+              borderBottom: '1px solid #f3f4f6',
+            }}>
+              {/* Time label */}
+              <div style={{
+                width: TIME_COL_W + 'px', flexShrink: 0,
+                paddingRight: '8px', paddingTop: '8px',
+                fontSize: '11px', fontWeight: 600,
+                color: isCurrent ? '#d97706' : '#9ca3af',
+                textAlign: 'right', borderRight: '1px solid #f3f4f6',
+                background: isCurrent ? '#fffbeb' : '#fafafa',
+                boxSizing: 'border-box',
+              }}>
+                {fmtHour(slot)}
+              </div>
+              {/* Task pills */}
+              <div style={{ flex: 1, padding: '4px 8px', display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'hidden' }}>
+                {slotTasks.map(t => (
+                  <TimelineTaskPill key={t.id} task={t} color={color} onSubmit={onSubmit} />
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+    </div>
+  )
+}
+
+function TimelineTaskPill({ task, color, onSubmit }) {
+  const st = TASK_STATUS_STYLE[task.status] || TASK_STATUS_STYLE.pending
+  const canSubmit = task.status === 'pending' || task.status === 'rejected'
+  return (
+    <div
+      onClick={() => canSubmit && onSubmit(task)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '7px',
+        padding: '5px 9px', borderRadius: '8px',
+        background: canSubmit ? color + '15' : st.bg,
+        borderLeft: `3px solid ${canSubmit ? color : st.border}`,
+        cursor: canSubmit ? 'pointer' : 'default',
+        transition: 'opacity 0.12s',
+        userSelect: 'none',
+      }}
+      onMouseEnter={e => { if (canSubmit) e.currentTarget.style.opacity = '0.8' }}
+      onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
+    >
+      <span style={{ fontSize: '14px', flexShrink: 0 }}>{task.icon}</span>
+      <span style={{ fontSize: '12px', fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {task.title}
+      </span>
+      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '99px', background: st.bg, color: st.color, flexShrink: 0, border: `1px solid ${st.border}` }}>
+        {st.label}
+      </span>
+      {canSubmit && (
+        <span style={{ fontSize: '10px', color: color, fontWeight: 700, flexShrink: 0 }}>Tap →</span>
       )}
     </div>
   )
