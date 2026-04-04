@@ -141,76 +141,37 @@ export default function KidDashboard() {
           </div>
         </div>
 
-        {/* Weekly-only: week nav + day strip */}
+        {/* Week nav — weekly mode only */}
         {view === 'weekly' && (
-          <>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button onClick={() => setWeekAnchor(w => subWeeks(w, 1))}
-                style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
-                <ChevronLeft size={15} />
-              </button>
-              <span style={{ flex: 1, textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-                {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d')}
-              </span>
-              <button onClick={() => setWeekAnchor(w => addWeeks(w, 1))}
-                style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
-                <ChevronRight size={15} />
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
-              {weekDays.map(day => {
-                const dayStr   = format(day, 'yyyy-MM-dd')
-                const isToday_ = dayStr === today
-                const isSel    = dayStr === selectedDate
-                const dayTasks = allTasks.filter(t => t.due_date === dayStr)
-                const done     = dayTasks.filter(t => t.status === 'approved').length
-                const total    = dayTasks.length
-                return (
-                  <button key={dayStr} onClick={() => setSelectedDate(dayStr)} style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    padding: '10px 10px 8px', borderRadius: '14px', minWidth: '44px',
-                    flexShrink: 0, cursor: 'pointer', border: 'none',
-                    background: isSel ? color : isToday_ ? color + '18' : '#fff',
-                    boxShadow: isSel ? `0 2px 8px ${color}40` : '0 1px 3px rgba(0,0,0,0.06)',
-                    outline: !isSel && isToday_ ? `2px solid ${color}40` : 'none',
-                  }}>
-                    <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: isSel ? 'rgba(255,255,255,0.8)' : '#9ca3af' }}>
-                      {format(day, 'EEE')}
-                    </span>
-                    <span style={{ fontSize: '17px', fontWeight: 700, marginTop: '2px', color: isSel ? '#fff' : isToday_ ? color : '#111827' }}>
-                      {format(day, 'd')}
-                    </span>
-                    <div style={{ display: 'flex', gap: '3px', marginTop: '5px', height: '6px', alignItems: 'center' }}>
-                      {total === 0 ? (
-                        <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: isSel ? 'rgba(255,255,255,0.3)' : '#e5e7eb' }} />
-                      ) : (
-                        Array.from({ length: Math.min(total, 4) }).map((_, i) => (
-                          <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%',
-                            background: i < done ? (isSel ? '#fff' : '#22c55e') : (isSel ? 'rgba(255,255,255,0.35)' : '#e5e7eb') }} />
-                        ))
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button onClick={() => setWeekAnchor(w => subWeeks(w, 1))}
+              style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
+              <ChevronLeft size={15} />
+            </button>
+            <span style={{ flex: 1, textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+              {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d')}
+            </span>
+            <button onClick={() => setWeekAnchor(w => addWeeks(w, 1))}
+              style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
+              <ChevronRight size={15} />
+            </button>
+          </div>
         )}
 
-        {/* Timeline + Today card side by side */}
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <HourlyTimeline
-              tasks={selectedTasks}
-              selectedDate={view === 'daily' ? today : selectedDate}
-              today={today}
-              color={color}
-              onSubmit={setSubmitting}
-            />
+        {/* Daily: timeline + Today card side by side */}
+        {view === 'daily' && (
+          <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <HourlyTimeline tasks={allTasks.filter(t => t.due_date === today)} selectedDate={today} today={today} color={color} onSubmit={setSubmitting} />
+            </div>
+            <TodayCard tasks={todayTasks} color={color} pct={pctToday} onSubmit={setSubmitting} />
           </div>
-          <TodayCard tasks={todayTasks} color={color} pct={pctToday} onSubmit={setSubmitting} />
-        </div>
+        )}
+
+        {/* Weekly: 7-column week grid */}
+        {view === 'weekly' && (
+          <WeekTimeline weekDays={weekDays} allTasks={allTasks} today={today} color={color} onSubmit={setSubmitting} />
+        )}
       </div>
 
       {/* ── Summary ── */}
@@ -395,6 +356,139 @@ function HourlyTimeline({ tasks, selectedDate, today, color, onSubmit }) {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── Week timeline (7 day columns) ────────────────────────────
+function WeekTimeline({ weekDays, allTasks, today, color, onSubmit }) {
+  const scrollRef = useRef(null)
+  const hourSlots = buildHourSlots()
+
+  useEffect(() => {
+    if (!scrollRef.current) return
+    const nowH = new Date().getHours()
+    scrollRef.current.scrollTop = Math.max(0, nowH - 1 - HOUR_START) * SLOT_HEIGHT
+  }, [])
+
+  // Collect all tasks that have no due_time across the week
+  const anytimeByDay = weekDays.map(day => ({
+    dayStr: format(day, 'yyyy-MM-dd'),
+    tasks: allTasks.filter(t => t.due_date === format(day, 'yyyy-MM-dd') && slotForTask(t) === 'anytime'),
+  })).filter(d => d.tasks.length > 0)
+
+  const hasAnytime = anytimeByDay.length > 0
+
+  return (
+    <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+
+      {/* Day column headers */}
+      <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 2, background: '#fff' }}>
+        <div style={{ width: TIME_COL_W + 'px', flexShrink: 0, borderRight: '1px solid #f3f4f6' }} />
+        {weekDays.map(day => {
+          const dayStr   = format(day, 'yyyy-MM-dd')
+          const isToday_ = dayStr === today
+          const dayTasks = allTasks.filter(t => t.due_date === dayStr)
+          const done     = dayTasks.filter(t => t.status === 'approved').length
+          return (
+            <div key={dayStr} style={{
+              flex: 1, minWidth: '80px', padding: '8px 6px',
+              textAlign: 'center', borderRight: '1px solid #f3f4f6',
+              background: isToday_ ? color + '10' : '#fafafa',
+            }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', color: isToday_ ? color : '#9ca3af', margin: '0 0 1px', letterSpacing: '0.4px' }}>
+                {format(day, 'EEE')}
+              </p>
+              <p style={{ fontSize: '15px', fontWeight: 700, color: isToday_ ? color : '#111827', margin: 0 }}>
+                {format(day, 'd')}
+              </p>
+              {dayTasks.length > 0 && (
+                <p style={{ fontSize: '10px', color: '#9ca3af', margin: '2px 0 0' }}>
+                  {done}/{dayTasks.length}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Anytime row */}
+      {hasAnytime && (
+        <div style={{ display: 'flex', borderBottom: '1px solid #e5e7eb', background: '#fafafa' }}>
+          <div style={{ width: TIME_COL_W + 'px', flexShrink: 0, padding: '6px 4px', fontSize: '9px', fontWeight: 700, color: '#9ca3af', textAlign: 'right', borderRight: '1px solid #f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            anytime
+          </div>
+          {weekDays.map(day => {
+            const dayStr = format(day, 'yyyy-MM-dd')
+            const tasks  = allTasks.filter(t => t.due_date === dayStr && slotForTask(t) === 'anytime')
+            return (
+              <div key={dayStr} style={{ flex: 1, minWidth: '80px', padding: '4px 4px', borderRight: '1px solid #f3f4f6', minHeight: '36px' }}>
+                {tasks.map(t => <WeekTaskPill key={t.id} task={t} color={color} onSubmit={onSubmit} />)}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Hour rows */}
+      <div ref={scrollRef} style={{ overflowY: 'auto', maxHeight: '500px' }}>
+        {hourSlots.map(slot => {
+          const nowH      = new Date().getHours()
+          const isCurrent = format(new Date(), 'yyyy-MM-dd') === today && nowH === parseInt(slot, 10)
+          return (
+            <div key={slot} style={{
+              display: 'flex', height: SLOT_HEIGHT + 'px',
+              background: isCurrent ? '#fffbeb' : 'transparent',
+              borderBottom: '1px solid #f3f4f6',
+            }}>
+              {/* Time gutter */}
+              <div style={{ width: TIME_COL_W + 'px', flexShrink: 0, paddingRight: '6px', paddingTop: '6px', fontSize: '10px', fontWeight: 600, color: isCurrent ? '#d97706' : '#9ca3af', textAlign: 'right', borderRight: '1px solid #f3f4f6', background: isCurrent ? '#fffbeb' : '#fafafa', boxSizing: 'border-box' }}>
+                {fmtHour(slot)}
+              </div>
+              {/* Day cells */}
+              {weekDays.map(day => {
+                const dayStr   = format(day, 'yyyy-MM-dd')
+                const isToday_ = dayStr === today
+                const tasks    = allTasks.filter(t => t.due_date === dayStr && slotForTask(t) === slot)
+                return (
+                  <div key={dayStr} style={{
+                    flex: 1, minWidth: '80px', padding: '3px 4px',
+                    borderRight: '1px solid #f3f4f6',
+                    background: isToday_ && isCurrent ? '#fffbeb' : isToday_ ? color + '05' : 'transparent',
+                    overflow: 'hidden',
+                  }}>
+                    {tasks.map(t => <WeekTaskPill key={t.id} task={t} color={color} onSubmit={onSubmit} />)}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function WeekTaskPill({ task, color, onSubmit }) {
+  const st        = STATUS_STYLE[task.status] || STATUS_STYLE.pending
+  const canSubmit = task.status === 'pending' || task.status === 'rejected'
+  return (
+    <div
+      onClick={() => canSubmit && onSubmit(task)}
+      title={task.title}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '3px',
+        padding: '3px 5px', borderRadius: '5px', marginBottom: '2px',
+        background: canSubmit ? color + '18' : st.bg,
+        borderLeft: `2px solid ${canSubmit ? color : st.border}`,
+        cursor: canSubmit ? 'pointer' : 'default',
+        overflow: 'hidden',
+      }}
+    >
+      <span style={{ fontSize: '11px', flexShrink: 0 }}>{task.icon}</span>
+      <span style={{ fontSize: '10px', fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {task.title}
+      </span>
     </div>
   )
 }
