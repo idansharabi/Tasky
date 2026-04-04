@@ -1,17 +1,19 @@
 import { useState } from 'react'
-import { LayoutDashboard, BookOpen, CalendarPlus, Users, ScrollText, LogOut, Menu, X } from 'lucide-react'
+import { LayoutDashboard, BookOpen, CalendarPlus, Users, ScrollText, LogOut, Menu, X, Gift } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ParentDashboard from '../components/parent/ParentDashboard'
 import TaskBank from '../components/parent/TaskBank'
 import TaskScheduler from '../components/parent/TaskScheduler'
 import FamilyUsers from '../components/parent/FamilyUsers'
 import AuditLog from '../components/parent/AuditLog'
+import RewardManager from '../components/parent/RewardManager'
 import ReleaseNotes from '../components/shared/ReleaseNotes'
 
 const NAV = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'bank',      label: 'Task Bank',  icon: BookOpen },
   { id: 'schedule',  label: 'Schedule',   icon: CalendarPlus },
+  { id: 'rewards',   label: 'Rewards',    icon: Gift },
   { id: 'family',    label: 'Family',     icon: Users },
   { id: 'audit',     label: 'Audit Log',  icon: ScrollText },
 ]
@@ -129,6 +131,7 @@ export default function ParentApp() {
           {tab === 'dashboard' && <ParentDashboard onNavigate={setTab} />}
           {tab === 'bank'      && <TaskBank />}
           {tab === 'schedule'  && <TaskScheduler />}
+          {tab === 'rewards'   && <RewardManager />}
           {tab === 'family'    && <FamilyUsers />}
           {tab === 'audit'     && <AuditLog />}
         </main>

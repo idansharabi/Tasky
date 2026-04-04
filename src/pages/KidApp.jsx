@@ -4,9 +4,11 @@ import { useAuth } from '../contexts/AuthContext'
 import KidDashboard from '../components/kid/KidDashboard'
 import CreditHistory from '../components/kid/CreditHistory'
 import KidProfile from '../components/kid/KidProfile'
+import RewardStore from '../components/kid/RewardStore'
 
 const TABS = [
   { id: 'tasks',   label: 'My Tasks',  icon: '✅' },
+  { id: 'store',   label: 'Store',     icon: '🏪' },
   { id: 'history', label: 'History',   icon: '📜' },
   { id: 'profile', label: 'Profile',   icon: '🏆' },
 ]
@@ -79,6 +81,7 @@ export default function KidApp() {
       {/* Content */}
       <main style={{ flex: 1, maxWidth: '600px', margin: '0 auto', width: '100%', padding: '20px 20px 40px' }}>
         {tab === 'tasks'   && <KidDashboard />}
+        {tab === 'store'   && <RewardStore />}
         {tab === 'history' && <CreditHistory />}
         {tab === 'profile' && <KidProfile />}
       </main>

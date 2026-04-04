@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import Modal from '../shared/Modal'
+import TaskComments from '../shared/TaskComments'
 import { sendPush } from '../../lib/notifications'
 import { logAction } from '../../lib/audit'
 
@@ -403,7 +404,8 @@ export default function ParentDashboard({ onNavigate }) {
               AI: {reviewItem.task_submissions[0].ai_reasoning}
             </p>
           )}
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <TaskComments assignmentId={reviewItem.id} />
+          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
             <button onClick={() => handleReject(reviewItem)}
               style={{ flex: 1, padding: '10px', border: '1px solid #e5e7eb', borderRadius: '10px', background: '#fff', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
               Reject

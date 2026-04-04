@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CheckCircle, Clock, AlertCircle, XCircle, Camera, Star } from 'lucide-react'
+import TaskComments from '../shared/TaskComments'
 
 function formatTimeLabel(t) {
   const [hStr, mStr] = t.split(':')
@@ -165,6 +166,10 @@ export default function TaskCard({ task, onSubmit }) {
             💪 Not approved this time — give it another try!
           </p>
         </div>
+      )}
+
+      {(task.status === 'rejected' || task.status === 'submitted') && (
+        <TaskComments assignmentId={task.id} />
       )}
     </div>
   )
