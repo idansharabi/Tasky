@@ -1,90 +1,179 @@
 import { useState } from 'react'
-import { LogOut } from 'lucide-react'
+import { CheckSquare, ShoppingBag, Clock, User, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import KidDashboard from '../components/kid/KidDashboard'
 import CreditHistory from '../components/kid/CreditHistory'
 import KidProfile from '../components/kid/KidProfile'
 import RewardStore from '../components/kid/RewardStore'
+import ReleaseNotes from '../components/shared/ReleaseNotes'
 
-const TABS = [
-  { id: 'tasks',   label: 'My Tasks',  icon: '✅' },
-  { id: 'store',   label: 'Store',     icon: '🏪' },
-  { id: 'history', label: 'History',   icon: '📜' },
-  { id: 'profile', label: 'Profile',   icon: '🏆' },
+const NAV = [
+  { id: 'tasks',   label: 'My Tasks', icon: CheckSquare },
+  { id: 'store',   label: 'Store',    icon: ShoppingBag },
+  { id: 'history', label: 'History',  icon: Clock },
+  { id: 'profile', label: 'Profile',  icon: User },
 ]
 
 export default function KidApp() {
   const { profile, signOut } = useAuth()
   const [tab, setTab] = useState('tasks')
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false)
   const color = profile?.avatar_color || '#6366f1'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f5f5f5', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', height: '100vh', background: '#f5f5f5', overflow: 'hidden' }}>
 
-      {/* Header */}
-      <header style={{
-        position: 'sticky', top: 0, zIndex: 20,
-        background: '#fff',
-        borderBottom: '1px solid #e5e7eb',
+      {/* ── Sidebar ── */}
+      <aside className="hidden md:flex flex-col" style={{
+        width: '220px', flexShrink: 0,
+        background: '#111827', height: '100vh',
+        borderRight: '1px solid #1f2937',
       }}>
-        {/* Top row */}
-        <div style={{
-          maxWidth: '600px', margin: '0 auto',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{
-              width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
-              background: color + '25',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px',
-            }}>
-              {profile?.avatar_emoji}
-            </div>
-            <div>
-              <p style={{ fontWeight: 700, fontSize: '15px', color: '#111827', margin: 0, lineHeight: 1.2 }}>{profile?.name}</p>
-              <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>✅ Tasky <span style={{ fontSize: '10px', color: '#d1d5db' }}>v{__APP_VERSION__}</span></p>
-            </div>
+        {/* Brand */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid #1f2937' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>✅</span>
+            <span style={{ color: '#f9fafb', fontWeight: 700, fontSize: '17px', letterSpacing: '-0.3px' }}>Tasky</span>
           </div>
-          <button
-            onClick={signOut}
-            style={{ padding: '8px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
-          >
-            <LogOut size={18} />
-          </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{
-          maxWidth: '600px', margin: '0 auto',
-          display: 'flex', gap: '6px', padding: '0 20px 12px',
-        }}>
-          {TABS.map(({ id, label, icon }) => (
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '12px 8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          {NAV.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: '6px',
-                padding: '8px 18px', borderRadius: '20px', fontSize: '14px', fontWeight: 600,
-                cursor: 'pointer', border: 'none',
-                background: tab === id ? color : '#f3f4f6',
-                color: tab === id ? '#fff' : '#6b7280',
+                width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '9px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                fontSize: '14px', fontWeight: tab === id ? 500 : 400,
+                background: tab === id ? color + '30' : 'transparent',
+                color: tab === id ? '#f9fafb' : '#9ca3af',
                 transition: 'all 0.15s',
+                textAlign: 'left',
               }}
+              onMouseEnter={e => { if (tab !== id) { e.currentTarget.style.background = '#1f2937'; e.currentTarget.style.color = '#e5e7eb' } }}
+              onMouseLeave={e => { if (tab !== id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#9ca3af' } }}
             >
-              {icon} {label}
+              <Icon size={16} color={tab === id ? color : undefined} />
+              {label}
             </button>
           ))}
-        </div>
-      </header>
+        </nav>
 
-      {/* Content */}
-      <main style={{ flex: 1, maxWidth: '600px', margin: '0 auto', width: '100%', padding: '20px 20px 40px' }}>
-        {tab === 'tasks'   && <KidDashboard />}
-        {tab === 'store'   && <RewardStore />}
-        {tab === 'history' && <CreditHistory />}
-        {tab === 'profile' && <KidProfile />}
-      </main>
+        {/* User */}
+        <div style={{ borderTop: '1px solid #1f2937', padding: '12px 8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', marginBottom: '2px' }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+              background: color + '30',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px',
+            }}>
+              {profile?.avatar_emoji || '🧒'}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ color: '#f9fafb', fontSize: '14px', fontWeight: 500, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile?.name}
+              </p>
+              <p style={{ color: '#6b7280', fontSize: '12px', margin: 0 }}>Kid</p>
+            </div>
+          </div>
+          <button
+            onClick={signOut}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '8px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+              fontSize: '14px', color: '#6b7280', background: 'transparent', transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#1f2937'; e.currentTarget.style.color = '#f87171' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280' }}
+          >
+            <LogOut size={15} />
+            Sign out
+          </button>
+          <button
+            onClick={() => setShowReleaseNotes(true)}
+            style={{
+              width: '100%', fontSize: '11px', color: '#4b5563', textAlign: 'center',
+              margin: '8px 0 0', letterSpacing: '0.3px', background: 'none', border: 'none',
+              cursor: 'pointer', padding: '2px 0',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#a5b4fc'}
+            onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}
+          >
+            v{__APP_VERSION__} · What's new
+          </button>
+        </div>
+      </aside>
+
+      {/* ── Main ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, height: '100vh', background: '#ffffff' }}>
+
+        {/* Top bar */}
+        <header style={{
+          height: '56px', flexShrink: 0,
+          borderBottom: '1px solid #e5e7eb',
+          display: 'flex', alignItems: 'center', padding: '0 32px',
+          background: '#ffffff',
+        }}>
+          <button onClick={() => setMenuOpen(true)} className="md:hidden" style={{ marginRight: '12px', color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Menu size={18} />
+          </button>
+          <span style={{ fontSize: '14px', color: '#374151', fontWeight: 500 }}>
+            {NAV.find(n => n.id === tab)?.label}
+          </span>
+        </header>
+
+        {/* Content */}
+        <main style={{ flex: 1, overflowY: 'auto', background: '#fafafa' }}>
+          <div style={{ maxWidth: '720px', margin: '0 auto', padding: '32px 40px 80px', width: '100%', boxSizing: 'border-box' }}>
+            {tab === 'tasks'   && <KidDashboard />}
+            {tab === 'store'   && <RewardStore />}
+            {tab === 'history' && <CreditHistory />}
+            {tab === 'profile' && <KidProfile />}
+          </div>
+        </main>
+      </div>
+
+      {/* ── Mobile drawer ── */}
+      {menuOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={() => setMenuOpen(false)} />
+          <aside style={{ position: 'relative', width: '220px', background: '#111827', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #1f2937' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '16px' }}>{profile?.avatar_emoji}</span>
+                <span style={{ color: '#f9fafb', fontWeight: 700 }}>{profile?.name}</span>
+              </div>
+              <button onClick={() => setMenuOpen(false)} style={{ color: '#6b7280', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <X size={18} />
+              </button>
+            </div>
+            <nav style={{ padding: '12px 8px', flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {NAV.map(({ id, label, icon: Icon }) => (
+                <button key={id} onClick={() => { setTab(id); setMenuOpen(false) }}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '9px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                    fontSize: '14px',
+                    background: tab === id ? color + '30' : 'transparent',
+                    color: tab === id ? '#f9fafb' : '#9ca3af',
+                  }}>
+                  <Icon size={16} color={tab === id ? color : undefined} /> {label}
+                </button>
+              ))}
+            </nav>
+            <div style={{ borderTop: '1px solid #1f2937', padding: '12px 8px' }}>
+              <button onClick={signOut} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', color: '#f87171', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px', width: '100%' }}>
+                <LogOut size={15} /> Sign out
+              </button>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {showReleaseNotes && <ReleaseNotes onClose={() => setShowReleaseNotes(false)} />}
     </div>
   )
 }
