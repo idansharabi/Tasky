@@ -33,18 +33,10 @@ export default function FamilyUsers() {
     if (!confirmDelete) return
     setDeleting(true)
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({ userId: confirmDelete.id }),
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId: confirmDelete.id },
       })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+      if (error) throw new Error(error.message)
       setUsers(u => u.filter(x => x.id !== confirmDelete.id))
       toast.success(`${confirmDelete.name} removed from the family`)
     } catch (err) {
