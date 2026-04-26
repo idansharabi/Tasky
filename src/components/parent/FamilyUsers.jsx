@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
-import { Star, Shield, User } from 'lucide-react'
+import { Star, Shield, User, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
+import ConfirmDialog from '../shared/ConfirmDialog'
 
 export default function FamilyUsers() {
+  const { profile: me } = useAuth()
   const [users, setUsers] = useState([])
   const [balances, setBalances] = useState({})
   const [loading, setLoading] = useState(true)
+  const [confirmDelete, setConfirmDelete] = useState(null) // user object to delete
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -22,6 +28,31 @@ export default function FamilyUsers() {
     }
     load()
   }, [])
+
+  async function handleDelete() {
+    if (!confirmDelete) return
+    setDeleting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ userId: confirmDelete.id }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      setUsers(u => u.filter(x => x.id !== confirmDelete.id))
+      toast.success(`${confirmDelete.name} removed from the family`)
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove user')
+    }
+    setDeleting(false)
+    setConfirmDelete(null)
+  }
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
@@ -43,16 +74,27 @@ export default function FamilyUsers() {
       {/* Parents */}
       <Section title="Parents" icon={<Shield size={14} color="#6366f1" />} count={parents.length}>
         {parents.map((u, i) => (
-          <UserRow key={u.id} user={u} isLast={i === parents.length - 1} />
+          <UserRow key={u.id} user={u} isLast={i === parents.length - 1}
+            isSelf={u.id === me?.id} onDelete={() => setConfirmDelete(u)} />
         ))}
       </Section>
 
       {/* Kids */}
       <Section title="Kids" icon={<User size={14} color="#f59e0b" />} count={kids.length}>
         {kids.map((u, i) => (
-          <UserRow key={u.id} user={u} isLast={i === kids.length - 1} balance={balances[u.id]} />
+          <UserRow key={u.id} user={u} isLast={i === kids.length - 1} balance={balances[u.id]}
+            isSelf={false} onDelete={() => setConfirmDelete(u)} />
         ))}
       </Section>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          message={`Remove ${confirmDelete.name} from the family? This will delete all their tasks, credits, and data permanently.`}
+          confirmLabel={deleting ? 'Removing…' : 'Remove'}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
     </div>
   )
 }
@@ -72,7 +114,7 @@ function Section({ title, icon, count, children }) {
   )
 }
 
-function UserRow({ user, isLast, balance }) {
+function UserRow({ user, isLast, balance, isSelf, onDelete }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '14px',
@@ -118,6 +160,21 @@ function UserRow({ user, isLast, balance }) {
         }}>
           {user.role === 'parent' ? 'Parent' : 'Kid'}
         </span>
+        {!isSelf && (
+          <button
+            onClick={onDelete}
+            title="Remove user"
+            style={{
+              padding: '6px', borderRadius: '8px', border: 'none',
+              background: 'transparent', cursor: 'pointer', color: '#d1d5db',
+              display: 'flex', transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#ef4444'}
+            onMouseLeave={e => e.currentTarget.style.color = '#d1d5db'}
+          >
+            <Trash2 size={15} />
+          </button>
+        )}
       </div>
     </div>
   )
