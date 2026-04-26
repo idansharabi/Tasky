@@ -11,7 +11,7 @@ export default function FamilyUsers() {
   useEffect(() => {
     async function load() {
       const [profilesRes, balancesRes] = await Promise.all([
-        supabase.from('profiles_with_email').select('*').order('role').order('name'),
+        supabase.from('profiles').select('*').order('role').order('name'),
         supabase.from('kid_balances').select('id, balance'),
       ])
       setUsers(profilesRes.data || [])
