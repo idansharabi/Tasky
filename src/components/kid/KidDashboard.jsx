@@ -115,8 +115,37 @@ export default function KidDashboard() {
     </div>
   )
 
+  const hour = new Date().getHours()
+  const funGreeting = (() => {
+    if (completedToday === todayTasks.length && todayTasks.length > 0)
+      return { emoji: '🏆', msg: 'ALL DONE! You absolutely crushed it today!', sub: 'Parents will be shook 😤', color: '#dcfce7', border: '#86efac', text: '#15803d' }
+    if (hour < 9)
+      return { emoji: '😴', msg: `Rise and shine, ${profile?.name}!`, sub: "Your chores won't do themselves… we checked.", color: '#fef9c3', border: '#fde047', text: '#854d0e' }
+    if (hour < 12)
+      return { emoji: '💪', msg: `Morning hustle, ${profile?.name}!`, sub: `${todayTasks.length - completedToday} task${todayTasks.length - completedToday !== 1 ? 's' : ''} standing between you and free time.`, color: '#dbeafe', border: '#93c5fd', text: '#1d4ed8' }
+    if (hour < 17)
+      return { emoji: '⚡', msg: `Afternoon, ${profile?.name}!`, sub: completedToday > 0 ? `${completedToday} down, keep that energy! 🔥` : 'Afternoon already?! Time to get moving 😅', color: '#fce7f3', border: '#f9a8d4', text: '#9d174d' }
+    return { emoji: '🌙', msg: `Evening, ${profile?.name}!`, sub: todayTasks.length - completedToday > 0 ? 'Racing the clock now 😬 let\'s go!' : 'All done! Go enjoy your evening 🎉', color: '#ede9fe', border: '#c4b5fd', text: '#5b21b6' }
+  })()
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingBottom: '40px' }}>
+
+      {/* ── Fun Greeting ── */}
+      <div style={{
+        borderRadius: '16px', padding: '16px 18px',
+        background: funGreeting.color, border: `1.5px solid ${funGreeting.border}`,
+        display: 'flex', alignItems: 'center', gap: '14px',
+        animation: 'fade-up 0.5s ease both',
+      }}>
+        <span style={{ fontSize: '36px', flexShrink: 0, animation: 'wiggle 2s ease-in-out infinite' }}>
+          {funGreeting.emoji}
+        </span>
+        <div>
+          <p style={{ fontWeight: 700, fontSize: '15px', color: funGreeting.text, margin: 0 }}>{funGreeting.msg}</p>
+          <p style={{ fontSize: '13px', color: funGreeting.text, opacity: 0.75, marginTop: '2px' }}>{funGreeting.sub}</p>
+        </div>
+      </div>
 
       {/* ── My Tasks ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

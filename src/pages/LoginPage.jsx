@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
@@ -27,6 +27,20 @@ export default function LoginPage() {
   const [signupData, setSignupData] = useState({
     name: '', role: 'kid', avatarEmoji: '😊', avatarColor: '#6366f1',
   })
+
+  const TAGLINES = [
+    'Chores: the game where you actually get paid 💸',
+    'Mom said clean your room. We made it fun. 🧹',
+    'Earn credits. Buy freedom. 🎮',
+    'Warning: side effects include a tidy room 😅',
+    'Tasks done → credits earned → snacks unlocked 🍕',
+    'The only app your parents AND you will love 🤝',
+  ]
+  const [taglineIdx, setTaglineIdx] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTaglineIdx(i => (i + 1) % TAGLINES.length), 3200)
+    return () => clearInterval(id)
+  }, [])
 
   const EMOJIS = ['😊', '🦁', '🐼', '🦄', '🐸', '🌟', '🚀', '🦋', '🎮', '⚽', '🎨', '🎵']
   const COLORS = ['#6366f1', '#ec4899', '#f97316', '#22c55e', '#3b82f6', '#a855f7', '#14b8a6', '#f59e0b']
@@ -73,6 +87,16 @@ export default function LoginPage() {
 
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          {/* Bouncing mascots */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
+            {['🧹', '🍽️', '🐕', '🌟', '🎮'].map((em, i) => (
+              <span key={em} style={{
+                fontSize: '26px', display: 'inline-block',
+                animation: `bounce-fun 1.4s ease-in-out ${i * 0.18}s infinite`,
+              }}>{em}</span>
+            ))}
+          </div>
+
           <div style={{
             width: '64px', height: '64px', borderRadius: '18px',
             background: '#6366f1', display: 'flex', alignItems: 'center',
@@ -81,7 +105,19 @@ export default function LoginPage() {
             ✅
           </div>
           <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#111827', margin: 0, letterSpacing: '-0.5px' }}>Tasky</h1>
-          <p style={{ fontSize: '14px', color: '#9ca3af', marginTop: '4px' }}>Sharabi Family Task Manager</p>
+
+          {/* Rotating tagline */}
+          <p
+            key={taglineIdx}
+            style={{
+              fontSize: '13px', color: '#6366f1', marginTop: '6px',
+              fontWeight: 600, animation: 'fade-up 0.4s ease both',
+              minHeight: '20px',
+            }}
+          >
+            {TAGLINES[taglineIdx]}
+          </p>
+          <p style={{ fontSize: '12px', color: '#c4b5fd', marginTop: '3px' }}>Sharabi Family</p>
         </div>
 
         {/* Card */}

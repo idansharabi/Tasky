@@ -162,7 +162,8 @@ CREATE POLICY "push_own" ON push_subscriptions USING (auth.uid() = user_id)
 -- ============================================================
 -- Helper view: kid balances
 -- ============================================================
-CREATE OR REPLACE VIEW kid_balances AS
+CREATE OR REPLACE VIEW kid_balances
+WITH (security_invoker = true) AS
   SELECT
     p.id,
     p.name,

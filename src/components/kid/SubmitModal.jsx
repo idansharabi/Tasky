@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Camera, Upload, CheckCircle, Loader, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
@@ -7,6 +7,17 @@ import { useAuth } from '../../contexts/AuthContext'
 import { sendPush } from '../../lib/notifications'
 import { logAction } from '../../lib/audit'
 
+const ANALYZING_MSGS = [
+  'AI is judging your work… 👀',
+  'Consulting the chore gods… 🔮',
+  'Scanning for suspicious sock placement… 🧦',
+  'Running the sniff test algorithm… 👃',
+  'Asking 1,000 robots if this looks done… 🤖',
+  'Cross-referencing with the clean room database… 📊',
+  'Calibrating the mess-o-meter… 📡',
+  'Zooming in on every dusty corner… 🔍',
+]
+
 export default function SubmitModal({ task, onClose, onDone }) {
   const { profile } = useAuth()
   const [phase, setPhase] = useState('choose')
@@ -14,8 +25,16 @@ export default function SubmitModal({ task, onClose, onDone }) {
   const [imagePreview, setImagePreview] = useState(null)
   const [aiResult, setAiResult] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [msgIdx, setMsgIdx] = useState(0)
   const fileInputRef = useRef()
   const cameraInputRef = useRef()
+
+  useEffect(() => {
+    if (phase !== 'analyzing') return
+    setMsgIdx(0)
+    const id = setInterval(() => setMsgIdx(i => (i + 1) % ANALYZING_MSGS.length), 2200)
+    return () => clearInterval(id)
+  }, [phase])
 
   function handleFileChange(e) {
     const file = e.target.files?.[0]
@@ -245,29 +264,63 @@ export default function SubmitModal({ task, onClose, onDone }) {
           )}
 
           {phase === 'analyzing' && (
-            <div style={{ padding: '24px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-              {imagePreview && <img src={imagePreview} alt="Preview" style={{ width: '100%', borderRadius: '12px', objectFit: 'cover', maxHeight: '160px', opacity: 0.6 }} />}
-              <Loader size={32} style={{ color: '#6366f1', animation: 'spin 0.7s linear infinite' }} />
+            <div style={{ padding: '16px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '14px', alignItems: 'center' }}>
+              {imagePreview && (
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <img src={imagePreview} alt="Preview" style={{ width: '100%', borderRadius: '12px', objectFit: 'cover', maxHeight: '140px', opacity: 0.5 }} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '48px', animation: 'wiggle 0.6s ease-in-out infinite' }}>🔍</span>
+                  </div>
+                </div>
+              )}
+              <img
+                src="https://media.giphy.com/media/3oEjI5VtIhHvK37WYo/giphy.gif"
+                alt="AI thinking"
+                style={{ width: '120px', height: '80px', objectFit: 'cover', borderRadius: '12px' }}
+              />
               <div>
-                <p style={{ fontWeight: 600, fontSize: '15px', color: '#111827', margin: 0 }}>Analyzing your photo…</p>
-                <p style={{ fontSize: '13px', color: '#9ca3af', marginTop: '4px' }}>AI is checking your work 🤖</p>
+                <p style={{ fontWeight: 700, fontSize: '15px', color: '#111827', margin: 0 }}>AI is on the case…</p>
+                <p
+                  key={msgIdx}
+                  style={{ fontSize: '13px', color: '#6366f1', marginTop: '6px', fontWeight: 500, animation: 'fade-up 0.3s ease both' }}
+                >
+                  {ANALYZING_MSGS[msgIdx]}
+                </p>
               </div>
             </div>
           )}
 
           {phase === 'done' && (
-            <div style={{ padding: '24px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-              <div style={{
-                width: '64px', height: '64px', borderRadius: '50%',
-                background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <CheckCircle size={32} style={{ color: '#22c55e' }} />
-              </div>
-              <p style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: 0 }}>Submitted!</p>
+            <div style={{ padding: '16px 0', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
               {aiResult?.approved === true && aiResult?.confidence === 'high' ? (
-                <p style={{ fontSize: '14px', color: '#16a34a', fontWeight: 600, margin: 0 }}>🎉 Auto-approved! +{task.credit_value} credits!</p>
+                <>
+                  <img
+                    src="https://media.giphy.com/media/l0MYt5jPR6QX5pnqM/giphy.gif"
+                    alt="Celebration!"
+                    style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '14px' }}
+                  />
+                  <p style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0, animation: 'pop-in 0.4s ease both' }}>
+                    🎉 BOOM! Approved!
+                  </p>
+                  <p style={{ fontSize: '15px', color: '#16a34a', fontWeight: 700, margin: 0 }}>
+                    +{task.credit_value} credits just hit your account 💰
+                  </p>
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>The robots were impressed. No small feat.</p>
+                </>
               ) : (
-                <p style={{ fontSize: '14px', color: '#9ca3af', margin: 0 }}>Waiting for a parent to review</p>
+                <>
+                  <div style={{
+                    width: '72px', height: '72px', borderRadius: '50%',
+                    background: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '36px', animation: 'pop-in 0.4s ease both',
+                  }}>
+                    📬
+                  </div>
+                  <p style={{ fontSize: '20px', fontWeight: 700, color: '#111827', margin: 0 }}>Sent to the bosses!</p>
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
+                    Your parent is on the case 🕵️ Credits incoming soon…
+                  </p>
+                </>
               )}
               <button
                 onClick={onClose}

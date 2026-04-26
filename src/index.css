@@ -15,3 +15,26 @@ body {
 #root {
   min-height: 100vh;
 }
+
+@keyframes bounce-fun {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  40% { transform: translateY(-14px) rotate(-5deg); }
+  60% { transform: translateY(-10px) rotate(5deg); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pop-in {
+  0%   { transform: scale(0.7); opacity: 0; }
+  70%  { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25%  { transform: rotate(-12deg); }
+  75%  { transform: rotate(12deg); }
+}
