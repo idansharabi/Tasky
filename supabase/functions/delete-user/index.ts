@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY')!
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 const cors = {
@@ -16,12 +15,11 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('authorization')
     if (!authHeader) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: cors })
 
-    // Verify caller is a parent
-    const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { authorization: authHeader } },
-    })
-    const { data: { user: caller } } = await callerClient.auth.getUser()
-    if (!caller) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: cors })
+    // Verify caller via admin client using the JWT directly
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY)
+    const jwt = authHeader.replace('Bearer ', '')
+    const { data: { user: caller }, error: authError } = await adminClient.auth.getUser(jwt)
+    if (authError || !caller) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: cors })
 
     const adminClient = createClient(SUPABASE_URL, SERVICE_KEY)
     const { data: callerProfile } = await adminClient.from('profiles').select('role').eq('id', caller.id).single()
