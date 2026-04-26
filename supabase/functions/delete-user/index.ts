@@ -21,7 +21,6 @@ Deno.serve(async (req) => {
     const { data: { user: caller }, error: authError } = await adminClient.auth.getUser(jwt)
     if (authError || !caller) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: cors })
 
-    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY)
     const { data: callerProfile } = await adminClient.from('profiles').select('role').eq('id', caller.id).single()
     if (callerProfile?.role !== 'parent')
       return new Response(JSON.stringify({ error: 'Only parents can remove users' }), { status: 403, headers: cors })
