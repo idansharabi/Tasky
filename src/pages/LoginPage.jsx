@@ -3,18 +3,20 @@ import { Eye, EyeOff, LogIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import StarBackground from '../components/shared/StarBackground'
 
 const inputStyle = {
   width: '100%', padding: '11px 14px',
-  border: '1px solid #e5e7eb', borderRadius: '10px',
-  fontSize: '14px', color: '#111827',
+  border: '1px solid rgba(255,255,255,0.12)', borderRadius: '10px',
+  fontSize: '14px', color: '#e2e8f0',
   outline: 'none', boxSizing: 'border-box',
-  background: '#fff',
+  background: 'rgba(255,255,255,0.06)',
+  backdropFilter: 'blur(4px)',
 }
 
 const labelStyle = {
   display: 'block', fontSize: '13px',
-  fontWeight: 600, color: '#374151', marginBottom: '6px',
+  fontWeight: 600, color: '#94a3b8', marginBottom: '6px',
 }
 
 export default function LoginPage() {
@@ -25,7 +27,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [mode, setMode] = useState('login')
   const [signupData, setSignupData] = useState({
-    name: '', role: 'kid', avatarEmoji: '😊', avatarColor: '#6366f1',
+    name: '', role: 'kid', avatarEmoji: '😊', avatarColor: '#3b82f6',
   })
 
   const TAGLINES = [
@@ -43,7 +45,7 @@ export default function LoginPage() {
   }, [])
 
   const EMOJIS = ['😊', '🦁', '🐼', '🦄', '🐸', '🌟', '🚀', '🦋', '🎮', '⚽', '🎨', '🎵']
-  const COLORS = ['#6366f1', '#ec4899', '#f97316', '#22c55e', '#3b82f6', '#a855f7', '#14b8a6', '#f59e0b']
+  const COLORS = ['#3b82f6', '#6366f1', '#ec4899', '#f97316', '#22c55e', '#a855f7', '#14b8a6', '#f59e0b']
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -81,53 +83,70 @@ export default function LoginPage() {
   return (
     <div style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: '#f5f5f5', padding: '24px',
+      padding: '24px', position: 'relative', overflow: 'hidden',
+      background: '#060d1f',
     }}>
-      <div style={{ width: '100%', maxWidth: '420px' }}>
+      <StarBackground />
+
+      <div style={{ width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1 }}>
 
         {/* Brand */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
           {/* Bouncing mascots */}
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '20px' }}>
             {['🧹', '🍽️', '🐕', '🌟', '🎮'].map((em, i) => (
               <span key={em} style={{
                 fontSize: '26px', display: 'inline-block',
                 animation: `bounce-fun 1.4s ease-in-out ${i * 0.18}s infinite`,
+                filter: 'drop-shadow(0 0 8px rgba(147,197,253,0.6))',
               }}>{em}</span>
             ))}
           </div>
 
+          {/* Logo */}
           <div style={{
-            width: '64px', height: '64px', borderRadius: '18px',
-            background: '#6366f1', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', fontSize: '30px', margin: '0 auto 16px',
+            width: '68px', height: '68px', borderRadius: '20px',
+            background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+            boxShadow: '0 0 30px rgba(59,130,246,0.5), 0 0 60px rgba(59,130,246,0.2)',
+            display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: '32px', margin: '0 auto 16px',
           }}>
             ✅
           </div>
-          <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#111827', margin: 0, letterSpacing: '-0.5px' }}>Tasky</h1>
+
+          <h1 style={{
+            fontSize: '32px', fontWeight: 800, margin: 0, letterSpacing: '-1px',
+            background: 'linear-gradient(135deg, #93c5fd, #ffffff, #bfdbfe)',
+            WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+          }}>
+            Tasky
+          </h1>
 
           {/* Rotating tagline */}
           <p
             key={taglineIdx}
             style={{
-              fontSize: '13px', color: '#6366f1', marginTop: '6px',
-              fontWeight: 600, animation: 'fade-up 0.4s ease both',
+              fontSize: '13px', color: '#60a5fa', marginTop: '8px',
+              fontWeight: 500, animation: 'fade-up 0.4s ease both',
               minHeight: '20px',
             }}
           >
             {TAGLINES[taglineIdx]}
           </p>
-          <p style={{ fontSize: '12px', color: '#c4b5fd', marginTop: '3px' }}>Sharabi Family</p>
+          <p style={{ fontSize: '12px', color: '#334155', marginTop: '3px' }}>Sharabi Family</p>
         </div>
 
         {/* Card */}
         <div style={{
-          background: '#fff', borderRadius: '18px',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+          background: 'rgba(10, 20, 45, 0.75)',
+          backdropFilter: 'blur(24px)',
+          borderRadius: '20px',
+          border: '1px solid rgba(59,130,246,0.2)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)',
           overflow: 'hidden',
         }}>
           {/* Tab switcher */}
-          <div style={{ display: 'flex', padding: '8px', background: '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+          <div style={{ display: 'flex', padding: '8px', background: 'rgba(255,255,255,0.03)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             {[
               { id: 'login', label: 'Sign In' },
               { id: 'signup', label: 'Create Account' },
@@ -139,9 +158,9 @@ export default function LoginPage() {
                   flex: 1, padding: '9px', borderRadius: '10px',
                   fontSize: '14px', fontWeight: 600, cursor: 'pointer',
                   border: 'none',
-                  background: mode === id ? '#fff' : 'transparent',
-                  color: mode === id ? '#111827' : '#9ca3af',
-                  boxShadow: mode === id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  background: mode === id ? 'rgba(59,130,246,0.2)' : 'transparent',
+                  color: mode === id ? '#93c5fd' : '#475569',
+                  boxShadow: mode === id ? '0 1px 4px rgba(0,0,0,0.2)' : 'none',
                   transition: 'all 0.15s',
                 }}
               >
@@ -174,7 +193,7 @@ export default function LoginPage() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                     {[
                       { value: 'parent', label: '👨‍👩‍👧 Parent', desc: 'Manage tasks & credits' },
-                      { value: 'kid',    label: '🧒 Kid',           desc: 'Complete tasks & earn' },
+                      { value: 'kid',    label: '🧒 Kid',    desc: 'Complete tasks & earn' },
                     ].map((r) => (
                       <button
                         key={r.value}
@@ -182,12 +201,12 @@ export default function LoginPage() {
                         onClick={() => setSignupData({ ...signupData, role: r.value })}
                         style={{
                           padding: '12px', borderRadius: '12px', textAlign: 'left', cursor: 'pointer',
-                          border: signupData.role === r.value ? '2px solid #6366f1' : '2px solid #e5e7eb',
-                          background: signupData.role === r.value ? '#eef2ff' : '#fff',
+                          border: signupData.role === r.value ? '1.5px solid #3b82f6' : '1.5px solid rgba(255,255,255,0.08)',
+                          background: signupData.role === r.value ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
                         }}
                       >
-                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827' }}>{r.label}</div>
-                        <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '2px' }}>{r.desc}</div>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#e2e8f0' }}>{r.label}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>{r.desc}</div>
                       </button>
                     ))}
                   </div>
@@ -204,8 +223,8 @@ export default function LoginPage() {
                         style={{
                           width: '38px', height: '38px', borderRadius: '10px', fontSize: '20px',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          border: signupData.avatarEmoji === em ? '2px solid #6366f1' : '2px solid transparent',
-                          background: signupData.avatarEmoji === em ? '#eef2ff' : '#f9fafb',
+                          border: signupData.avatarEmoji === em ? '2px solid #3b82f6' : '2px solid rgba(255,255,255,0.06)',
+                          background: signupData.avatarEmoji === em ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)',
                           cursor: 'pointer',
                           transform: signupData.avatarEmoji === em ? 'scale(1.1)' : 'scale(1)',
                         }}
@@ -226,6 +245,7 @@ export default function LoginPage() {
                           outline: signupData.avatarColor === c ? `3px solid ${c}` : 'none',
                           outlineOffset: '2px',
                           transform: signupData.avatarColor === c ? 'scale(1.15)' : 'scale(1)',
+                          boxShadow: signupData.avatarColor === c ? `0 0 10px ${c}88` : 'none',
                         }}
                       />
                     ))}
@@ -263,7 +283,7 @@ export default function LoginPage() {
                   onClick={() => setShowPw(!showPw)}
                   style={{
                     position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
-                    background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af',
+                    background: 'none', border: 'none', cursor: 'pointer', color: '#475569',
                     display: 'flex', padding: 0,
                   }}
                 >
@@ -276,13 +296,16 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               style={{
-                width: '100%', padding: '12px',
+                width: '100%', padding: '13px',
                 borderRadius: '10px', fontSize: '15px', fontWeight: 700,
-                background: loading ? '#a5b4fc' : '#6366f1',
+                background: loading
+                  ? 'rgba(59,130,246,0.4)'
+                  : 'linear-gradient(135deg, #1d4ed8, #3b82f6)',
+                boxShadow: loading ? 'none' : '0 0 20px rgba(59,130,246,0.4)',
                 color: '#fff', border: 'none',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                marginTop: '4px',
+                marginTop: '4px', transition: 'all 0.2s',
               }}
             >
               {loading ? (
@@ -296,6 +319,11 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
+
+        {/* Footer */}
+        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '12px', color: '#1e3a5f' }}>
+          ✨ Powered by stars and good behavior
+        </p>
       </div>
     </div>
   )
