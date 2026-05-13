@@ -3,7 +3,6 @@ import { Eye, EyeOff, LogIn } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import StarBackground from '../components/shared/StarBackground'
 
 const inputStyle = {
   width: '100%', padding: '11px 14px',
@@ -86,8 +85,6 @@ export default function LoginPage() {
       padding: '24px', position: 'relative', overflow: 'hidden',
       background: '#060d1f',
     }}>
-      <StarBackground />
-
       <div style={{ width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1 }}>
 
         {/* Brand */}

@@ -8,8 +8,9 @@
 
 body {
   font-family: system-ui, -apple-system, sans-serif;
-  background: #f8fafc;
+  background: #060d1f;
   min-height: 100vh;
+  color-scheme: dark;
 }
 
 #root {
