@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Plus, Pencil, Trash2, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Star, Search, ChevronDown, ChevronRight } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,15 +9,37 @@ import { logAction } from '../../lib/audit'
 
 const ICONS = ['⭐', '🧹', '🍽️', '🛏️', '📚', '🐕', '🌱', '🏠', '🧺', '🚿', '🦷', '🥗', '🗑️', '🪣', '🧴', '📦', '🎒', '💪', '🎯', '🏆']
 
+const CATEGORIES = [
+  { id: 'Cleaning',  label: 'Cleaning',  emoji: '🧹' },
+  { id: 'Kitchen',   label: 'Kitchen',   emoji: '🍳' },
+  { id: 'School',    label: 'School',    emoji: '📚' },
+  { id: 'Hygiene',   label: 'Hygiene',   emoji: '🚿' },
+  { id: 'Pets',      label: 'Pets',      emoji: '🐾' },
+  { id: 'Exercise',  label: 'Exercise',  emoji: '💪' },
+  { id: 'Garden',    label: 'Garden',    emoji: '🌱' },
+  { id: 'Other',     label: 'Other',     emoji: '⭐' },
+]
+
+const CAT_COLORS = {
+  Cleaning:  { bg: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8' },
+  Kitchen:   { bg: '#fff7ed', border: '#fed7aa', text: '#c2410c' },
+  School:    { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d' },
+  Hygiene:   { bg: '#fdf4ff', border: '#e9d5ff', text: '#7e22ce' },
+  Pets:      { bg: '#fefce8', border: '#fef08a', text: '#a16207' },
+  Exercise:  { bg: '#fff1f2', border: '#fecdd3', text: '#be123c' },
+  Garden:    { bg: '#f0fdf4', border: '#86efac', text: '#166534' },
+  Other:     { bg: '#f9fafb', border: '#e5e7eb', text: '#374151' },
+}
+
 const DEFAULTS = [
-  { title: 'Make your bed', icon: '🛏️', credit_value: 5, description: '' },
-  { title: 'Do the dishes', icon: '🍽️', credit_value: 10, description: '' },
-  { title: 'Clean your room', icon: '🧹', credit_value: 15, description: '' },
-  { title: 'Take out the trash', icon: '🗑️', credit_value: 10, description: '' },
-  { title: 'Homework done', icon: '📚', credit_value: 20, description: 'All assignments completed' },
-  { title: 'Walk the dog', icon: '🐕', credit_value: 15, description: '' },
-  { title: 'Set the table', icon: '🥗', credit_value: 5, description: '' },
-  { title: 'Brush teeth (morning + night)', icon: '🦷', credit_value: 5, description: '' },
+  { title: 'Make your bed',              icon: '🛏️', credit_value: 5,  description: '',                           category: 'Cleaning' },
+  { title: 'Do the dishes',             icon: '🍽️', credit_value: 10, description: '',                           category: 'Kitchen' },
+  { title: 'Clean your room',           icon: '🧹', credit_value: 15, description: '',                           category: 'Cleaning' },
+  { title: 'Take out the trash',        icon: '🗑️', credit_value: 10, description: '',                           category: 'Cleaning' },
+  { title: 'Homework done',             icon: '📚', credit_value: 20, description: 'All assignments completed',  category: 'School' },
+  { title: 'Walk the dog',              icon: '🐕', credit_value: 15, description: '',                           category: 'Pets' },
+  { title: 'Set the table',             icon: '🥗', credit_value: 5,  description: '',                           category: 'Kitchen' },
+  { title: 'Brush teeth (morning + night)', icon: '🦷', credit_value: 5, description: '',                       category: 'Hygiene' },
 ]
 
 const inputStyle = {
@@ -39,15 +61,17 @@ export default function TaskBank() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [form, setForm] = useState({ title: '', description: '', credit_value: 10, icon: '⭐' })
+  const [form, setForm] = useState({ title: '', description: '', credit_value: 10, icon: '⭐', category: 'Other' })
   const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState('')
+  const [collapsed, setCollapsed] = useState({})
 
   const load = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('task_templates')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('title', { ascending: true })
     setTemplates(data || [])
     setLoading(false)
   }, [profile.id])
@@ -55,13 +79,17 @@ export default function TaskBank() {
   useEffect(() => { load() }, [load])
 
   function openNew() {
-    setForm({ title: '', description: '', credit_value: 10, icon: '⭐' })
+    setForm({ title: '', description: '', credit_value: 10, icon: '⭐', category: 'Other' })
     setModal('new')
   }
 
   function openEdit(tpl) {
-    setForm({ title: tpl.title, description: tpl.description || '', credit_value: tpl.credit_value, icon: tpl.icon })
+    setForm({ title: tpl.title, description: tpl.description || '', credit_value: tpl.credit_value, icon: tpl.icon, category: tpl.category || 'Other' })
     setModal(tpl)
+  }
+
+  function toggleCollapse(catId) {
+    setCollapsed(prev => ({ ...prev, [catId]: !prev[catId] }))
   }
 
   async function handleSeed() {
@@ -87,6 +115,7 @@ export default function TaskBank() {
         description: form.description.trim() || null,
         credit_value: Number(form.credit_value),
         icon: form.icon,
+        category: form.category,
         created_by: profile.id,
       })
       if (!error) {
@@ -100,6 +129,7 @@ export default function TaskBank() {
         description: form.description.trim() || null,
         credit_value: Number(form.credit_value),
         icon: form.icon,
+        category: form.category,
       }).eq('id', modal.id)
       if (!error) {
         toast.success('Task updated')
@@ -120,14 +150,30 @@ export default function TaskBank() {
     setDeleteTarget(null)
   }
 
+  // Filter by search query
+  const query = search.trim().toLowerCase()
+  const filtered = query
+    ? templates.filter(t => t.title.toLowerCase().includes(query) || (t.description || '').toLowerCase().includes(query))
+    : templates
+
+  // Group by category preserving CATEGORIES order
+  const grouped = CATEGORIES
+    .map(cat => ({
+      ...cat,
+      tasks: filtered.filter(t => (t.category || 'Other') === cat.id),
+    }))
+    .filter(g => g.tasks.length > 0)
+
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '48px 56px 80px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '36px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.4px' }}>Task Bank</h1>
-          <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>Reusable tasks you can assign to kids</p>
+          <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>
+            {templates.length} task{templates.length !== 1 ? 's' : ''} · grouped by category
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {templates.length === 0 && (
@@ -156,6 +202,25 @@ export default function TaskBank() {
         </div>
       </div>
 
+      {/* Search bar */}
+      {templates.length > 0 && (
+        <div style={{ position: 'relative', marginBottom: '28px' }}>
+          <Search size={15} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            placeholder="Search tasks…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              ...inputStyle,
+              paddingLeft: '38px',
+              background: '#fafafa',
+              border: '1px solid #e5e7eb',
+            }}
+          />
+        </div>
+      )}
+
       {/* Content */}
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
@@ -171,17 +236,91 @@ export default function TaskBank() {
           <p style={{ fontSize: '16px', fontWeight: 600, color: '#374151', margin: 0 }}>Your task bank is empty</p>
           <p style={{ fontSize: '14px', color: '#9ca3af', marginTop: '6px' }}>Add tasks or load the default set to get started</p>
         </div>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
+          <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔍</div>
+          <p style={{ fontSize: '14px' }}>No tasks match "<strong>{search}</strong>"</p>
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '14px' }}>
-          {templates.map((tpl) => (
-            <TaskRow key={tpl.id} tpl={tpl} onEdit={openEdit} onDelete={setDeleteTarget} />
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {grouped.map(group => {
+            const isCollapsed = collapsed[group.id]
+            const colors = CAT_COLORS[group.id] || CAT_COLORS.Other
+            return (
+              <div key={group.id}>
+                {/* Category header */}
+                <button
+                  onClick={() => toggleCollapse(group.id)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                    padding: '10px 14px', borderRadius: '10px',
+                    background: colors.bg, border: `1px solid ${colors.border}`,
+                    cursor: 'pointer', marginBottom: isCollapsed ? '0' : '10px',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <span style={{ fontSize: '16px' }}>{group.emoji}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: colors.text, flex: 1, textAlign: 'left' }}>
+                    {group.label}
+                  </span>
+                  <span style={{
+                    fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px',
+                    background: colors.border, color: colors.text,
+                  }}>
+                    {group.tasks.length}
+                  </span>
+                  {isCollapsed
+                    ? <ChevronRight size={14} color={colors.text} />
+                    : <ChevronDown  size={14} color={colors.text} />
+                  }
+                </button>
+
+                {/* Tasks grid */}
+                {!isCollapsed && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '10px' }}>
+                    {group.tasks.map((tpl) => (
+                      <TaskRow key={tpl.id} tpl={tpl} onEdit={openEdit} onDelete={setDeleteTarget} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
       {modal && (
         <Modal title={modal === 'new' ? 'New Task' : 'Edit Task'} onClose={() => setModal(null)} size="sm">
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+            <div>
+              <label style={labelStyle}>Category</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '7px' }}>
+                {CATEGORIES.map(cat => {
+                  const colors = CAT_COLORS[cat.id]
+                  const active = form.category === cat.id
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setForm({ ...form, category: cat.id })}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '5px',
+                        padding: '5px 11px', borderRadius: '99px', fontSize: '12px', fontWeight: 600,
+                        cursor: 'pointer', transition: 'all 0.12s',
+                        border: active ? `1.5px solid ${colors.border}` : '1.5px solid #e5e7eb',
+                        background: active ? colors.bg : '#f9fafb',
+                        color: active ? colors.text : '#6b7280',
+                        transform: active ? 'scale(1.04)' : 'scale(1)',
+                      }}
+                    >
+                      <span>{cat.emoji}</span> {cat.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
             <div>
               <label style={labelStyle}>Icon</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
@@ -268,13 +407,14 @@ export default function TaskBank() {
 
 function TaskRow({ tpl, onEdit, onDelete }) {
   const [hovered, setHovered] = useState(false)
+  const colors = CAT_COLORS[tpl.category || 'Other'] || CAT_COLORS.Other
   return (
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: '14px',
-        padding: '16px 18px',
+        padding: '14px 16px',
         background: '#fff',
         borderRadius: '12px',
         border: '1px solid #f3f4f6',
@@ -283,9 +423,10 @@ function TaskRow({ tpl, onEdit, onDelete }) {
       }}
     >
       <div style={{
-        width: '44px', height: '44px', borderRadius: '12px',
-        background: '#f5f3ff', display: 'flex', alignItems: 'center',
-        justifyContent: 'center', fontSize: '22px', flexShrink: 0,
+        width: '42px', height: '42px', borderRadius: '12px',
+        background: colors.bg, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+        border: `1px solid ${colors.border}`,
       }}>
         {tpl.icon}
       </div>

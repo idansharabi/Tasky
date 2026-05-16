@@ -29,26 +29,41 @@ const STATUS_STYLE = {
 // ── Timeline constants ────────────────────────────────────────
 const HOUR_START  = 6    // 6 AM
 const HOUR_END    = 22   // 10 PM
-const SLOT_HEIGHT = 96   // px per hour row
-const TIME_COL_W  = 56   // px for time gutter
+const SLOT_HEIGHT = 48   // px per half-hour row (96px per full hour)
+const TIME_COL_W  = 60   // px for time gutter
 const KID_COL_MIN = 160  // px min per kid column
 
 function buildHourSlots() {
-  return Array.from({ length: HOUR_END - HOUR_START }, (_, i) =>
-    String(HOUR_START + i).padStart(2, '0') + ':00'
-  )
+  const slots = []
+  for (let h = HOUR_START; h < HOUR_END; h++) {
+    slots.push(String(h).padStart(2, '0') + ':00')
+    slots.push(String(h).padStart(2, '0') + ':30')
+  }
+  return slots
 }
-function fmtHour(slot) {
-  const h = parseInt(slot, 10)
-  if (h === 0)  return '12 AM'
-  if (h === 12) return '12 PM'
-  return h < 12 ? `${h} AM` : `${h - 12} PM`
+function fmtSlot(slot) {
+  const [hStr, mStr] = slot.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr, 10)
+  const suffix = h < 12 ? 'AM' : 'PM'
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h
+  if (m === 0) return `${h12} ${suffix}`
+  return `${h12}:30 ${suffix}`
 }
+// For audit/toast labels — same as fmtSlot
+function fmtHour(slot) { return fmtSlot(slot) }
+
 function slotForTask(task) {
   if (!task.due_time) return 'anytime'
-  const h = parseInt(task.due_time, 10)
+  const [hStr, mStr] = task.due_time.split(':')
+  const h = parseInt(hStr, 10)
+  const m = parseInt(mStr || '0', 10)
   if (h < HOUR_START || h >= HOUR_END) return 'anytime'
-  return String(h).padStart(2, '0') + ':00'
+  // Round to nearest :00 or :30
+  const roundedM = m < 15 ? '00' : m < 45 ? '30' : '00'
+  const roundedH = m >= 45 ? h + 1 : h
+  if (roundedH >= HOUR_END) return 'anytime'
+  return String(roundedH).padStart(2, '0') + ':' + roundedM
 }
 
 // ── Shared: Draggable template card ──────────────────────────
@@ -321,7 +336,13 @@ function AnytimeRow({ kids, tasks, onDelete, overId }) {
 
 function HourlyTimeline({ kids, tasks, onDelete, overId }) {
   const hourSlots = buildHourSlots()
-  const nowSlot = String(new Date().getHours()).padStart(2, '0') + ':00'
+  const now = new Date()
+  const nowH = now.getHours()
+  const nowM = now.getMinutes()
+  // Match current time to nearest slot
+  const nowSlot = nowH >= HOUR_START && nowH < HOUR_END
+    ? String(nowH).padStart(2, '0') + ':' + (nowM < 30 ? '00' : '30')
+    : null
   const currentRowRef = useRef(null)
 
   useEffect(() => {
@@ -346,8 +367,9 @@ function HourlyTimeline({ kids, tasks, onDelete, overId }) {
         {/* Anytime row */}
         <AnytimeRow kids={kids} tasks={tasks} onDelete={onDelete} overId={overId} />
 
-        {/* Hour rows */}
+        {/* Half-hour rows */}
         {hourSlots.map((slot, idx) => {
+          const isHour = slot.endsWith(':00')
           const isNow = slot === nowSlot
           return (
             <div
@@ -355,22 +377,33 @@ function HourlyTimeline({ kids, tasks, onDelete, overId }) {
               ref={isNow ? currentRowRef : null}
               style={{
                 display: 'flex', height: SLOT_HEIGHT + 'px',
-                background: isNow ? '#fffbeb' : idx % 2 === 0 ? '#fafafa' : '#fff',
+                background: isNow ? '#fffbeb' : isHour ? (Math.floor(idx / 2) % 2 === 0 ? '#fafafa' : '#fff') : 'transparent',
                 borderLeft: isNow ? '2px solid #f59e0b' : 'none',
+                borderBottom: isHour ? '1px solid #e5e7eb' : '1px solid #f3f4f6',
               }}
             >
-              {/* Time label */}
+              {/* Time label gutter */}
               <div style={{
                 width: TIME_COL_W + 'px', flexShrink: 0,
                 display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end',
-                paddingRight: '10px', paddingTop: '6px',
+                paddingRight: '8px', paddingTop: '5px', position: 'relative',
               }}>
-                <span style={{
-                  fontSize: '11px', color: isNow ? '#f59e0b' : '#9ca3af',
-                  fontWeight: isNow ? 700 : 400,
-                }}>
-                  {fmtHour(slot)}
-                </span>
+                {isHour ? (
+                  <span style={{
+                    fontSize: '11px', color: isNow ? '#f59e0b' : '#9ca3af',
+                    fontWeight: isNow ? 700 : 500,
+                  }}>
+                    {fmtSlot(slot)}
+                  </span>
+                ) : (
+                  /* subtle :30 tick mark */
+                  <span style={{
+                    fontSize: '10px', color: isNow ? '#f59e0b' : '#d1d5db',
+                    fontWeight: 400, letterSpacing: 0,
+                  }}>
+                    :30
+                  </span>
+                )}
               </div>
               {/* Kid slots */}
               {kids.map(kid => (
