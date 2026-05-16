@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Trash2, ChevronLeft, ChevronRight, Star, LayoutList, LayoutGrid, Clock } from 'lucide-react'
+import { Trash2, ChevronLeft, ChevronRight, ChevronDown, Star, LayoutList, LayoutGrid, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   DndContext,
@@ -18,6 +18,17 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import ConfirmDialog from '../shared/ConfirmDialog'
 import { logAction } from '../../lib/audit'
+
+const CATEGORIES = [
+  { id: 'Cleaning',  label: 'Cleaning',  emoji: '🧹', color: '#1d4ed8', bg: '#eff6ff' },
+  { id: 'Kitchen',   label: 'Kitchen',   emoji: '🍳', color: '#c2410c', bg: '#fff7ed' },
+  { id: 'School',    label: 'School',    emoji: '📚', color: '#15803d', bg: '#f0fdf4' },
+  { id: 'Hygiene',   label: 'Hygiene',   emoji: '🚿', color: '#7e22ce', bg: '#fdf4ff' },
+  { id: 'Pets',      label: 'Pets',      emoji: '🐾', color: '#a16207', bg: '#fefce8' },
+  { id: 'Exercise',  label: 'Exercise',  emoji: '💪', color: '#be123c', bg: '#fff1f2' },
+  { id: 'Garden',    label: 'Garden',    emoji: '🌱', color: '#166534', bg: '#f0fdf4' },
+  { id: 'Other',     label: 'Other',     emoji: '⭐', color: '#374151', bg: '#f9fafb' },
+]
 
 const STATUS_STYLE = {
   approved:  { bg: '#dcfce7', color: '#16a34a', label: 'Done' },
@@ -129,10 +140,19 @@ function OverlayCard({ tpl }) {
   )
 }
 
-// ── Task Bank panel — desktop (vertical list) ────────────────
+// ── Task Bank panel — desktop (grouped by category) ──────────
 function TaskBankPanel({ templates }) {
+  const [collapsed, setCollapsed] = useState({})
+
+  const grouped = CATEGORIES
+    .map(cat => ({
+      ...cat,
+      tasks: templates.filter(t => (t.category || 'Other') === cat.id),
+    }))
+    .filter(g => g.tasks.length > 0)
+
   return (
-    <div style={{ width: '260px', flexShrink: 0, paddingLeft: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ width: '260px', flexShrink: 0, paddingLeft: '20px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0' }}>
       <h2 style={{ fontSize: '11px', fontWeight: 700, color: '#9ca3af', letterSpacing: '0.8px', textTransform: 'uppercase', margin: '0 0 12px' }}>
         Task Bank
       </h2>
@@ -142,8 +162,42 @@ function TaskBankPanel({ templates }) {
           <p style={{ fontSize: '12px', color: '#d1d5db', marginTop: '4px' }}>Add some in Task Bank.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-          {templates.map((tpl) => <DraggableTemplate key={tpl.id} tpl={tpl} />)}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {grouped.map(group => {
+            const isOpen = !collapsed[group.id]
+            return (
+              <div key={group.id}>
+                {/* Category header */}
+                <button
+                  onClick={() => setCollapsed(prev => ({ ...prev, [group.id]: !prev[group.id] }))}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '5px 8px', borderRadius: '8px', border: 'none',
+                    background: group.bg, cursor: 'pointer', marginBottom: isOpen ? '6px' : '0',
+                  }}
+                >
+                  <span style={{ fontSize: '13px' }}>{group.emoji}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: group.color, flex: 1, textAlign: 'left' }}>
+                    {group.label}
+                  </span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: group.color, background: 'rgba(255,255,255,0.7)', borderRadius: '99px', padding: '1px 6px' }}>
+                    {group.tasks.length}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    color={group.color}
+                    style={{ transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s', flexShrink: 0 }}
+                  />
+                </button>
+                {/* Task cards */}
+                {isOpen && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {group.tasks.map(tpl => <DraggableTemplate key={tpl.id} tpl={tpl} />)}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
