@@ -53,7 +53,7 @@ function slotForTask(task) {
 
 // ── Shared: Draggable template card ──────────────────────────
 function DraggableTemplate({ tpl }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: tpl.id, data: { tpl } })
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: tpl.id, data: { type: 'template', tpl } })
   return (
     <div
       ref={setNodeRef}
@@ -190,17 +190,29 @@ function DraggableTemplateMobile({ tpl }) {
 function TimelineTaskBlock({ task, onDelete, kidColor }) {
   const [hovered, setHovered] = useState(false)
   const st = STATUS_STYLE[task.status] || STATUS_STYLE.pending
+  const canDrag = task.status === 'pending'
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `assignment__${task.id}`,
+    data: { type: 'assignment', assignment: task },
+    disabled: !canDrag,
+  })
   return (
     <div
+      ref={setNodeRef}
+      {...(canDrag ? listeners : {})}
+      {...(canDrag ? attributes : {})}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         padding: '5px 8px', borderRadius: '8px', marginBottom: '3px',
-        background: kidColor + '18',
+        background: isDragging ? kidColor + '40' : kidColor + '18',
         borderLeft: `3px solid ${kidColor}`,
         maxHeight: SLOT_HEIGHT - 16 + 'px',
-        overflow: 'hidden', cursor: 'default', position: 'relative',
+        overflow: 'hidden', position: 'relative',
+        cursor: canDrag ? 'grab' : 'default',
+        opacity: isDragging ? 0.4 : 1,
+        transform: CSS.Translate.toString(transform),
       }}
     >
       <span style={{ fontSize: '13px', flexShrink: 0 }}>{task.icon}</span>
@@ -457,6 +469,7 @@ export default function TaskScheduler() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [activeTemplate, setActiveTemplate] = useState(null)
+  const [activeAssignment, setActiveAssignment] = useState(null)
   const [overId, setOverId] = useState(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
@@ -518,21 +531,47 @@ export default function TaskScheduler() {
     } else toast.error(error.message)
   }
 
+  async function handleMove(assignment, kidId, dateStr, hourSlot) {
+    const newTime = hourSlot === 'anytime' ? null : hourSlot
+    if (assignment.due_time === newTime && assignment.kid_id === kidId && assignment.due_date === dateStr) return
+    const { error } = await supabase
+      .from('task_assignments')
+      .update({ due_time: newTime, kid_id: kidId, due_date: dateStr })
+      .eq('id', assignment.id)
+    if (!error) {
+      const kid = kids.find(k => k.id === kidId)
+      const timeLabel = hourSlot === 'anytime' ? 'anytime' : fmtHour(hourSlot)
+      toast.success(`Moved to ${timeLabel}`)
+      logAction(profile, 'Task rescheduled', 'task', `"${assignment.title}" → ${kid?.name} at ${timeLabel}`)
+      load()
+    } else toast.error(error.message)
+  }
+
   function onDragEnd({ active, over }) {
     setActiveTemplate(null)
+    setActiveAssignment(null)
     setOverId(null)
-    if (!over || !active.data.current?.tpl) return
-    const tpl = active.data.current.tpl
-    const overId = over.id
+    if (!over) return
 
+    const { type, tpl, assignment } = active.data.current || {}
+
+    if (type === 'assignment' && assignment) {
+      if (view === 'daily') {
+        const parts = over.id.split('__')
+        handleMove(assignment, parts[0], selectedDate, parts[1] || 'anytime')
+      } else {
+        const [kidId, dateStr] = over.id.split('__')
+        handleMove(assignment, kidId, dateStr, 'anytime')
+      }
+      return
+    }
+
+    if (!tpl) return
+    const overId = over.id
     if (view === 'daily') {
-      // over.id = `${kidId}__${hourSlot}` e.g. "uuid__09:00" or "uuid__anytime"
       const parts = overId.split('__')
-      const kidId = parts[0]
-      const hourSlot = parts[1] || 'anytime'
-      handleDrop(kidId, selectedDate, tpl, hourSlot)
+      handleDrop(parts[0], selectedDate, tpl, parts[1] || 'anytime')
     } else {
-      // over.id = `${kidId}__${dateStr}`
       const [kidId, dateStr] = overId.split('__')
       handleDrop(kidId, dateStr, tpl)
     }
@@ -659,7 +698,11 @@ export default function TaskScheduler() {
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
-        onDragStart={({ active }) => setActiveTemplate(active.data.current?.tpl || null)}
+        onDragStart={({ active }) => {
+          const { type, tpl, assignment } = active.data.current || {}
+          setActiveTemplate(type === 'template' ? tpl : (tpl || null))
+          setActiveAssignment(type === 'assignment' ? assignment : null)
+        }}
         onDragOver={({ over }) => setOverId(over?.id || null)}
         onDragEnd={onDragEnd}
         onDragCancel={() => { setActiveTemplate(null); setOverId(null) }}
@@ -761,6 +804,7 @@ export default function TaskScheduler() {
 
         <DragOverlay dropAnimation={null}>
           {activeTemplate ? <OverlayCard tpl={activeTemplate} /> : null}
+          {activeAssignment ? <OverlayCard tpl={activeAssignment} /> : null}
         </DragOverlay>
       </DndContext>
 
