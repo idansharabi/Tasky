@@ -276,9 +276,10 @@ function TimelineTaskBlock({ task, onDelete, kidColor }) {
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         padding: '5px 8px', borderRadius: '8px', marginBottom: '3px',
-        background: isDragging ? kidColor + '40' : kidColor + '18',
+        background: isDragging ? kidColor + '30' : '#fff',
         borderLeft: `3px solid ${kidColor}`,
-        maxHeight: SLOT_HEIGHT - 16 + 'px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+        maxHeight: SLOT_HEIGHT - 10 + 'px',
         overflow: 'hidden', position: 'relative',
         cursor: canDrag ? 'grab' : 'default',
         opacity: isDragging ? 0.4 : 1,
@@ -286,7 +287,7 @@ function TimelineTaskBlock({ task, onDelete, kidColor }) {
       }}
     >
       <span style={{ fontSize: '13px', flexShrink: 0 }}>{task.icon}</span>
-      <span style={{ fontSize: '11px', fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
       {!task.due_time && (
@@ -432,7 +433,7 @@ function HourlyTimeline({ kids, tasks, onDelete, overId }) {
               ref={isNow ? currentRowRef : null}
               style={{
                 display: 'flex', height: SLOT_HEIGHT + 'px',
-                background: isNow ? '#fffbeb' : isHour ? (Math.floor(idx / 2) % 2 === 0 ? '#fafafa' : '#fff') : 'transparent',
+                background: isNow ? '#fffbeb' : isHour ? (Math.floor(idx / 2) % 2 === 0 ? '#fafafa' : '#fff') : (Math.floor(idx / 2) % 2 === 0 ? '#f5f5f5' : '#fafafa'),
                 borderLeft: isNow ? '2px solid #f59e0b' : 'none',
                 borderBottom: isHour ? '1px solid #e5e7eb' : '1px solid #f3f4f6',
               }}
