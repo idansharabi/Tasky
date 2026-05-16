@@ -11,6 +11,7 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
+  pointerWithin,
   closestCenter,
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
@@ -784,7 +785,7 @@ export default function TaskScheduler() {
       {/* ── Content ── */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={pointerWithin}
         onDragStart={({ active }) => {
           const { type, tpl, assignment } = active.data.current || {}
           setActiveTemplate(type === 'template' ? tpl : (tpl || null))
