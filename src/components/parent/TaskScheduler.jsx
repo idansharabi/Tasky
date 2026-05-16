@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Trash2, ChevronLeft, ChevronRight, Star, LayoutList, LayoutGrid } from 'lucide-react'
+import { Trash2, ChevronLeft, ChevronRight, Star, LayoutList, LayoutGrid, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   DndContext,
@@ -207,6 +207,11 @@ function TimelineTaskBlock({ task, onDelete, kidColor }) {
       <span style={{ fontSize: '11px', fontWeight: 600, color: '#111827', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
+      {!task.due_time && (
+        <span title="No time set" style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '99px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', flexShrink: 0 }}>
+          <Clock size={8} /> No time
+        </span>
+      )}
       <span style={{ fontSize: '10px', fontWeight: 600, padding: '1px 6px', borderRadius: '99px', background: st.bg, color: st.color, flexShrink: 0 }}>
         {st.label}
       </span>
@@ -423,6 +428,11 @@ function WeeklyTaskPill({ task, onDelete }) {
     >
       <span style={{ fontSize: '11px' }}>{task.icon}</span>
       <span style={{ fontSize: '11px', fontWeight: 500, color: st.color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+      {!task.due_time && (
+        <span title="No time set" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+          <Clock size={9} color="#f97316" />
+        </span>
+      )}
       {hovered && (
         <button
           onClick={() => onDelete(task)}
