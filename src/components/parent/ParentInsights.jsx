@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format, subDays, startOfWeek, addDays } from 'date-fns'
-import { Star, TrendingUp, CheckCircle, AlertTriangle, Send } from 'lucide-react'
+import { Star, TrendingUp, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -116,51 +116,96 @@ export default function ParentInsights() {
     if (sending) return
     setSending(true)
     try {
-      // Build summary lines per kid
-      const lines = kids.map(k => {
-        const s = kidWeekStats[k.id] || {}
-        const pct = s.total ? Math.round((s.completed / s.total) * 100) : 0
-        return `${k.avatar_emoji} ${k.name}: ${s.credits || 0} credits · ${pct}% done`
-      })
-
       // Fetch parent IDs
       const { data: parents, error: parentsErr } = await supabase
         .from('profiles').select('id').eq('role', 'parent')
       if (parentsErr) throw parentsErr
       if (!parents?.length) {
-        toast.error('No parents found to notify')
+        toast.error('No parents found')
         setSending(false)
         return
       }
 
-      // Invoke edge function directly so we can detect errors
-      const title = `📊 Weekly Summary — ${format(weekStart, 'MMM d')}–${format(addDays(weekStart, 6), 'MMM d')}`
-      const body = lines.join(' | ')
-      const { data: pushData, error: pushErr } = await supabase.functions.invoke('send-push', {
-        body: { userIds: parents.map(p => p.id), title, body },
-      })
-      if (pushErr) throw pushErr
+      const weekLabel = `${format(weekStart, 'MMM d')}–${format(addDays(weekStart, 6), 'MMM d')}`
+      const subject = `📊 Tasky Weekly Summary — ${weekLabel}`
 
-      const sent = pushData?.sent ?? 0
+      // Build HTML email
+      const kidRows = kids.map(k => {
+        const s = kidWeekStats[k.id] || {}
+        const pct = s.total ? Math.round((s.completed / s.total) * 100) : 0
+        const barColor = pct >= 80 ? '#22c55e' : pct >= 50 ? '#f59e0b' : '#ef4444'
+        const c = k.avatar_color || '#6366f1'
+        return `
+          <tr>
+            <td style="padding:16px 20px;border-bottom:1px solid #f3f4f6;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="44">
+                    <div style="width:40px;height:40px;border-radius:50%;background:${c}25;border:2px solid ${c}60;display:flex;align-items:center;justify-content:center;font-size:22px;text-align:center;line-height:40px;">${k.avatar_emoji}</div>
+                  </td>
+                  <td style="padding-left:12px;">
+                    <p style="margin:0 0 4px;font-size:15px;font-weight:700;color:#111827;">${k.name}</p>
+                    <p style="margin:0;font-size:13px;color:#6b7280;">
+                      ⭐ <strong style="color:#111827;">${s.credits || 0}</strong> credits earned &nbsp;·&nbsp;
+                      ${s.completed || 0}/${s.total || 0} tasks &nbsp;·&nbsp;
+                      <strong style="color:${barColor};">${pct}% complete</strong>
+                    </p>
+                    <div style="margin-top:8px;height:6px;background:#f3f4f6;border-radius:99px;overflow:hidden;">
+                      <div style="height:100%;width:${pct}%;background:${barColor};border-radius:99px;"></div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>`
+      }).join('')
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+        <body style="margin:0;padding:0;background:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+          <div style="max-width:520px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+            <!-- Header -->
+            <div style="background:linear-gradient(135deg,#1e3a5f,#1e40af);padding:28px 32px;">
+              <p style="margin:0 0 4px;font-size:22px;">✅ Tasky</p>
+              <h1 style="margin:0;font-size:22px;font-weight:800;color:#fff;">Weekly Summary</h1>
+              <p style="margin:6px 0 0;font-size:14px;color:#93c5fd;">${weekLabel}</p>
+            </div>
+            <!-- Kids -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+              ${kidRows}
+            </table>
+            <!-- Footer -->
+            <div style="padding:20px 32px;background:#f8fafc;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:12px;color:#9ca3af;text-align:center;">Sent from Tasky · your family chores app</p>
+            </div>
+          </div>
+        </body>
+        </html>`
+
+      const { data: emailData, error: emailErr } = await supabase.functions.invoke('send-email', {
+        body: { userIds: parents.map(p => p.id), subject, html },
+      })
+      if (emailErr) throw emailErr
+
+      const sent = emailData?.sent ?? 0
 
       // Audit log
       await logAction(profile, 'send_weekly_summary', 'insights', {
         week_start: weekStartStr,
-        recipient_count: parents.length,
-        notifications_sent: sent,
+        emails_sent: sent,
         kids: kids.map(k => ({ name: k.name, credits: kidWeekStats[k.id]?.credits || 0 })),
       })
 
       if (sent === 0) {
-        toast('No push subscriptions found — make sure parents have notifications enabled in their browser', {
-          icon: '⚠️', duration: 5000,
-        })
+        toast('No parent email addresses found', { icon: '⚠️', duration: 5000 })
       } else {
-        toast.success(`📊 Weekly summary delivered to ${sent} device${sent > 1 ? 's' : ''}!`)
+        toast.success(`📧 Weekly summary emailed to ${sent} parent${sent > 1 ? 's' : ''}!`)
       }
     } catch (err) {
       console.error('Send summary error:', err)
-      toast.error('Failed to send summary — check console for details')
+      toast.error('Failed to send email — check console for details')
     }
     setSending(false)
   }
@@ -189,7 +234,7 @@ export default function ParentInsights() {
           disabled={sending}
           style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '10px 18px', borderRadius: '10px', border: 'none', background: '#6366f1', color: '#fff', fontSize: '13px', fontWeight: 600, cursor: 'pointer', opacity: sending ? 0.7 : 1 }}
         >
-          <Send size={14} /> {sending ? 'Sending…' : 'Send Weekly Summary'}
+          <Mail size={14} /> {sending ? 'Sending…' : 'Email Weekly Summary'}
         </button>
       </div>
 
