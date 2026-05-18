@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Star, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle, LayoutList, LayoutGrid } from 'lucide-react'
+import { Star, Flame, Trophy, ChevronLeft, ChevronRight, CheckCircle, LayoutList, LayoutGrid, Medal } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import SubmitModal from './SubmitModal'
@@ -82,9 +82,11 @@ export default function KidDashboard() {
   const weekStartStr = format(weekStart, 'yyyy-MM-dd')
   const weekEndStr   = format(addDays(weekStart, 6), 'yyyy-MM-dd')
 
+  const [leaderboard, setLeaderboard] = useState([])
+
   const load = useCallback(async () => {
     setLoading(true)
-    const [tasksRes, ledgerRes] = await Promise.all([
+    const [tasksRes, ledgerRes, lbRes] = await Promise.all([
       supabase
         .from('task_assignments')
         .select('*, task_submissions(*)')
@@ -93,9 +95,11 @@ export default function KidDashboard() {
         .lte('due_date', weekEndStr)
         .order('created_at'),
       supabase.from('credit_ledger').select('amount').eq('kid_id', profile.id),
+      supabase.rpc('get_leaderboard'),
     ])
     setAllTasks(tasksRes.data || [])
     setBalance((ledgerRes.data || []).reduce((s, r) => s + r.amount, 0))
+    setLeaderboard(lbRes.data || [])
     setLoading(false)
   }, [profile.id, weekStartStr, weekEndStr])
 
@@ -253,6 +257,52 @@ export default function KidDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ── Leaderboard ── */}
+      {leaderboard.length > 1 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Trophy size={15} color="#f59e0b" /> This Week's Leaderboard
+          </h2>
+          <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            {leaderboard.map((kid, i) => {
+              const isMe = kid.kid_id === profile.id
+              const medals = ['🥇', '🥈', '🥉']
+              return (
+                <div key={kid.kid_id} style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  padding: '12px 16px',
+                  borderBottom: i < leaderboard.length - 1 ? '1px solid #f3f4f6' : 'none',
+                  background: isMe ? (color + '12') : i === 0 ? '#fffbeb' : '#fff',
+                  borderLeft: isMe ? `3px solid ${color}` : '3px solid transparent',
+                }}>
+                  <span style={{ fontSize: '18px', width: '24px', textAlign: 'center', flexShrink: 0 }}>
+                    {medals[i] || `${i + 1}`}
+                  </span>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                    background: (kid.avatar_color || '#6366f1') + '25',
+                    border: `2px solid ${kid.avatar_color || '#6366f1'}60`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px',
+                  }}>
+                    {kid.avatar_emoji}
+                  </div>
+                  <span style={{ flex: 1, fontSize: '14px', fontWeight: isMe ? 700 : 500, color: isMe ? color : '#111827' }}>
+                    {kid.name}{isMe ? ' (you)' : ''}
+                  </span>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
+                      <Star size={11} fill="#f59e0b" color="#f59e0b" />
+                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#111827' }}>{kid.credits_this_week}</span>
+                    </div>
+                    <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>this week</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {submitting && <SubmitModal task={submitting} onClose={() => setSubmitting(null)} onDone={load} />}
     </div>

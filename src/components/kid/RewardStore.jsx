@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Star, ShoppingBag, CheckCircle } from 'lucide-react'
+import { Star, ShoppingBag, Clock, CheckCircle, XCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -9,46 +9,38 @@ export default function RewardStore() {
   const { profile } = useAuth()
   const [rewards, setRewards] = useState([])
   const [balance, setBalance] = useState(0)
-  const [redeeming, setRedeeming] = useState(null)
-  const [redeemed, setRedeemed] = useState([])
+  const [requesting, setRequesting] = useState(null)
+  const [myRequests, setMyRequests] = useState([])
   const [loading, setLoading] = useState(true)
 
   async function load() {
     setLoading(true)
-    const [rewardsRes, balanceRes, redemptionsRes] = await Promise.all([
+    const [rewardsRes, balanceRes, requestsRes] = await Promise.all([
       supabase.from('rewards').select('*').eq('is_active', true).order('cost'),
       supabase.from('kid_balances').select('balance').eq('id', profile.id).single(),
-      supabase.from('redemptions').select('reward_id').eq('kid_id', profile.id),
+      supabase.from('reward_requests').select('*').eq('kid_id', profile.id).order('created_at', { ascending: false }),
     ])
     setRewards(rewardsRes.data || [])
     setBalance(balanceRes.data?.balance || 0)
-    setRedeemed((redemptionsRes.data || []).map(r => r.reward_id))
+    setMyRequests(requestsRes.data || [])
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const ch = supabase
+      .channel(`reward-requests-${profile.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reward_requests', filter: `kid_id=eq.${profile.id}` }, load)
+      .subscribe()
+    return () => supabase.removeChannel(ch)
+  }, [])
 
-  async function handleRedeem(reward) {
+  async function handleRequest(reward) {
     if (balance < reward.cost) return toast.error("Not enough credits!")
-    if (redeeming) return
-    setRedeeming(reward.id)
+    if (requesting) return
+    setRequesting(reward.id)
 
-    // Deduct credits
-    const { error } = await supabase.from('credit_ledger').insert({
-      kid_id: profile.id,
-      amount: -reward.cost,
-      description: `Redeemed: ${reward.title}`,
-      created_by: profile.id,
-    })
-
-    if (error) {
-      toast.error('Something went wrong')
-      setRedeeming(null)
-      return
-    }
-
-    // Log redemption
-    await supabase.from('redemptions').insert({
+    const { error } = await supabase.from('reward_requests').insert({
       kid_id: profile.id,
       kid_name: profile.name,
       reward_id: reward.id,
@@ -57,18 +49,24 @@ export default function RewardStore() {
       reward_cost: reward.cost,
     })
 
+    if (error) {
+      toast.error('Something went wrong')
+      setRequesting(null)
+      return
+    }
+
     // Notify parents
     const { data: parents } = await supabase.from('profiles').select('id').eq('role', 'parent')
     if (parents?.length) {
       sendPush(
         parents.map(p => p.id),
-        `${profile.name} redeemed a reward! ${reward.icon}`,
-        `"${reward.title}" — ${reward.cost} credits`
+        `${profile.name} wants to redeem a reward! ${reward.icon}`,
+        `"${reward.title}" — ${reward.cost} credits · Tap to approve`
       )
     }
 
-    toast.success(`${reward.icon} Redeemed! Enjoy your reward!`)
-    setRedeeming(null)
+    toast.success(`${reward.icon} Request sent! Waiting for parent approval…`)
+    setRequesting(null)
     load()
   }
 
@@ -79,6 +77,14 @@ export default function RewardStore() {
   )
 
   const color = profile?.avatar_color || '#6366f1'
+
+  // Build a map of reward_id → latest request status
+  const requestStatus = {}
+  for (const r of myRequests) {
+    if (!requestStatus[r.reward_id] || r.created_at > requestStatus[r.reward_id].created_at) {
+      requestStatus[r.reward_id] = r
+    }
+  }
 
   return (
     <div>
@@ -110,20 +116,25 @@ export default function RewardStore() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {rewards.map(reward => {
             const canAfford = balance >= reward.cost
-            const isRedeeming = redeeming === reward.id
+            const isRequesting = requesting === reward.id
+            const req = requestStatus[reward.id]
+            const isPending  = req?.status === 'pending'
+            const isApproved = req?.status === 'approved'
+            const isRejected = req?.status === 'rejected'
+
             return (
               <div key={reward.id} style={{
                 background: '#fff', borderRadius: '14px',
-                border: `1px solid ${canAfford ? '#e5e7eb' : '#f3f4f6'}`,
+                border: `1px solid ${isPending ? '#fde68a' : isApproved ? '#bbf7d0' : isRejected ? '#fecaca' : canAfford ? '#e5e7eb' : '#f3f4f6'}`,
                 padding: '16px 18px',
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                opacity: canAfford ? 1 : 0.6,
+                opacity: canAfford || isPending || isApproved ? 1 : 0.6,
                 display: 'flex', alignItems: 'center', gap: '14px',
               }}>
                 {/* Icon */}
                 <div style={{
                   width: '52px', height: '52px', borderRadius: '14px', flexShrink: 0,
-                  background: canAfford ? color + '15' : '#f3f4f6',
+                  background: isApproved ? '#dcfce7' : isPending ? '#fef9c3' : canAfford ? color + '15' : '#f3f4f6',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '26px',
                 }}>
@@ -141,7 +152,7 @@ export default function RewardStore() {
                     <span style={{ fontSize: '13px', fontWeight: 700, color: canAfford ? '#111827' : '#9ca3af' }}>
                       {reward.cost} credits
                     </span>
-                    {!canAfford && (
+                    {!canAfford && !isPending && !isApproved && (
                       <span style={{ fontSize: '11px', color: '#ef4444', marginLeft: '4px' }}>
                         (need {reward.cost - balance} more)
                       </span>
@@ -149,74 +160,105 @@ export default function RewardStore() {
                   </div>
                 </div>
 
-                {/* Redeem button */}
-                <button
-                  onClick={() => handleRedeem(reward)}
-                  disabled={!canAfford || isRedeeming}
-                  style={{
-                    padding: '9px 18px', borderRadius: '10px', flexShrink: 0,
-                    fontSize: '13px', fontWeight: 700, border: 'none',
-                    cursor: canAfford ? 'pointer' : 'not-allowed',
-                    background: canAfford ? color : '#f3f4f6',
-                    color: canAfford ? '#fff' : '#9ca3af',
-                    transition: 'opacity 0.15s',
-                    opacity: isRedeeming ? 0.7 : 1,
-                    display: 'flex', alignItems: 'center', gap: '6px',
-                  }}
-                >
-                  {isRedeeming ? '…' : <><CheckCircle size={14} /> Redeem</>}
-                </button>
+                {/* Action button / status */}
+                {isApproved ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', borderRadius: '10px', background: '#dcfce7', flexShrink: 0 }}>
+                    <CheckCircle size={14} color="#16a34a" />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#16a34a' }}>Approved!</span>
+                  </div>
+                ) : isRejected ? (
+                  <button
+                    onClick={() => handleRequest(reward)}
+                    disabled={!canAfford || isRequesting}
+                    style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px',
+                      padding: '8px 12px', borderRadius: '10px', flexShrink: 0, border: 'none',
+                      cursor: canAfford ? 'pointer' : 'not-allowed',
+                      background: canAfford ? '#fef2f2' : '#f3f4f6',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <XCircle size={13} color="#ef4444" />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>Rejected</span>
+                    </div>
+                    {canAfford && <span style={{ fontSize: '10px', color: '#9ca3af' }}>Try again?</span>}
+                  </button>
+                ) : isPending ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '8px 14px', borderRadius: '10px', background: '#fef9c3', flexShrink: 0 }}>
+                    <Clock size={14} color="#b45309" />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#b45309' }}>Pending…</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => handleRequest(reward)}
+                    disabled={!canAfford || isRequesting}
+                    style={{
+                      padding: '9px 18px', borderRadius: '10px', flexShrink: 0,
+                      fontSize: '13px', fontWeight: 700, border: 'none',
+                      cursor: canAfford ? 'pointer' : 'not-allowed',
+                      background: canAfford ? color : '#f3f4f6',
+                      color: canAfford ? '#fff' : '#9ca3af',
+                      transition: 'opacity 0.15s',
+                      opacity: isRequesting ? 0.7 : 1,
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                    }}
+                  >
+                    {isRequesting ? '…' : '✋ Request'}
+                  </button>
+                )}
               </div>
             )
           })}
         </div>
       )}
 
-      {/* Redemption history */}
-      <RedemptionHistory kidId={profile.id} />
+      {/* Request history */}
+      <RequestHistory requests={myRequests} />
     </div>
   )
 }
 
-function RedemptionHistory({ kidId }) {
-  const [history, setHistory] = useState([])
+function RequestHistory({ requests }) {
+  if (requests.length === 0) return null
 
-  useEffect(() => {
-    supabase
-      .from('redemptions')
-      .select('*')
-      .eq('kid_id', kidId)
-      .order('created_at', { ascending: false })
-      .limit(10)
-      .then(({ data }) => setHistory(data || []))
-  }, [kidId])
-
-  if (history.length === 0) return null
+  const STATUS_LABEL = {
+    pending:  { label: 'Pending',  color: '#b45309', bg: '#fef9c3' },
+    approved: { label: 'Approved', color: '#15803d', bg: '#dcfce7' },
+    rejected: { label: 'Rejected', color: '#b91c1c', bg: '#fee2e2' },
+  }
 
   return (
     <div style={{ marginTop: '32px' }}>
       <p style={{ fontSize: '12px', fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '0 0 12px' }}>
-        My redemptions
+        My requests
       </p>
       <div style={{ background: '#fff', borderRadius: '14px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        {history.map((r, i) => (
-          <div key={r.id} style={{
-            display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
-            borderBottom: i < history.length - 1 ? '1px solid #f9fafb' : 'none',
-          }}>
-            <span style={{ fontSize: '20px' }}>{r.reward_icon}</span>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>{r.reward_title}</p>
-              <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0' }}>
-                {new Date(r.created_at).toLocaleDateString()}
-              </p>
+        {requests.slice(0, 10).map((r, i) => {
+          const s = STATUS_LABEL[r.status] || STATUS_LABEL.pending
+          return (
+            <div key={r.id} style={{
+              display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
+              borderBottom: i < Math.min(requests.length, 10) - 1 ? '1px solid #f9fafb' : 'none',
+            }}>
+              <span style={{ fontSize: '20px' }}>{r.reward_icon}</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>{r.reward_title}</p>
+                <p style={{ fontSize: '11px', color: '#9ca3af', margin: '2px 0 0' }}>
+                  {new Date(r.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <Star size={11} fill="#f59e0b" color="#f59e0b" />
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280' }}>{r.reward_cost}</span>
+                </div>
+                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: s.bg, color: s.color }}>
+                  {s.label}
+                </span>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <Star size={11} fill="#f59e0b" color="#f59e0b" />
-              <span style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280' }}>-{r.reward_cost}</span>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

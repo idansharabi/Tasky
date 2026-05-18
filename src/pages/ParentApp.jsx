@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, BookOpen, CalendarPlus, Users, ScrollText, LogOut, Menu, X, Gift } from 'lucide-react'
+import { LayoutDashboard, BookOpen, CalendarPlus, Users, ScrollText, LogOut, Menu, X, Gift, BarChart2 } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import ParentDashboard from '../components/parent/ParentDashboard'
 import TaskBank from '../components/parent/TaskBank'
@@ -7,6 +7,7 @@ import TaskScheduler from '../components/parent/TaskScheduler'
 import FamilyUsers from '../components/parent/FamilyUsers'
 import AuditLog from '../components/parent/AuditLog'
 import RewardManager from '../components/parent/RewardManager'
+import ParentInsights from '../components/parent/ParentInsights'
 import ReleaseNotes from '../components/shared/ReleaseNotes'
 
 const NAV = [
@@ -14,6 +15,7 @@ const NAV = [
   { id: 'bank',      label: 'Task Bank',  icon: BookOpen },
   { id: 'schedule',  label: 'Schedule',   icon: CalendarPlus },
   { id: 'rewards',   label: 'Rewards',    icon: Gift },
+  { id: 'insights',  label: 'Insights',   icon: BarChart2 },
   { id: 'family',    label: 'Family',     icon: Users },
   { id: 'audit',     label: 'Audit Log',  icon: ScrollText },
 ]
@@ -140,6 +142,7 @@ export default function ParentApp() {
           {tab === 'bank'      && <TaskBank />}
           {tab === 'schedule'  && <TaskScheduler />}
           {tab === 'rewards'   && <RewardManager />}
+          {tab === 'insights'  && <ParentInsights />}
           {tab === 'family'    && <FamilyUsers />}
           {tab === 'audit'     && <AuditLog />}
         </main>
