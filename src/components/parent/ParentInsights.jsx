@@ -152,7 +152,7 @@ export default function ParentInsights() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '40px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111827', margin: '0 0 6px', letterSpacing: '-0.5px' }}>Insights</h1>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px', letterSpacing: '-0.5px' }}>Insights</h1>
           <p style={{ fontSize: '14px', color: '#9ca3af', margin: 0 }}>Track performance, spot patterns, celebrate progress.</p>
         </div>
         <button
@@ -316,7 +316,7 @@ function Section({ title, subtitle, children }) {
   return (
     <div style={{ marginBottom: '44px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>{title}</h2>
         {subtitle && <span style={{ fontSize: '12px', color: '#9ca3af' }}>{subtitle}</span>}
       </div>
       {children}

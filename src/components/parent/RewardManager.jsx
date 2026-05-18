@@ -162,7 +162,7 @@ export default function RewardManager() {
       {/* Header */}
       <div style={{ marginBottom: '40px', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111827', margin: '0 0 6px', letterSpacing: '-0.5px' }}>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 6px', letterSpacing: '-0.5px' }}>
             Rewards
           </h1>
           <p style={{ fontSize: '14px', color: '#9ca3af', margin: 0 }}>
@@ -357,7 +357,7 @@ function Section({ title, count, accent, icon, children }) {
     <div style={{ marginBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
         {icon}
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>{title}</h2>
         {count != null && (
           <span style={{
             fontSize: '12px', color: accent ? '#fff' : '#6b7280',

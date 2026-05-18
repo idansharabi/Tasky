@@ -170,7 +170,7 @@ export default function TaskBank() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '28px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.4px' }}>Task Bank</h1>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.4px' }}>Task Bank</h1>
           <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>
             {templates.length} task{templates.length !== 1 ? 's' : ''} · grouped by category
           </p>

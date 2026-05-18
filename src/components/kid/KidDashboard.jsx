@@ -163,7 +163,7 @@ export default function KidDashboard() {
 
         {/* Toggle row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>My Tasks</h2>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>My Tasks</h2>
           <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
             {[{ id: 'daily', icon: LayoutList, label: 'Day' }, { id: 'weekly', icon: LayoutGrid, label: 'Week' }].map(({ id, icon: Icon, label }) => (
               <button key={id} onClick={() => { setView(id); if (id === 'daily') setSelectedDate(today) }}
@@ -188,7 +188,7 @@ export default function KidDashboard() {
               style={{ padding: '6px', borderRadius: '8px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', display: 'flex', color: '#6b7280' }}>
               <ChevronLeft size={15} />
             </button>
-            <span style={{ flex: 1, textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#374151' }}>
+            <span style={{ flex: 1, textAlign: 'center', fontSize: '13px', fontWeight: 600, color: '#94a3b8' }}>
               {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d')}
             </span>
             <button onClick={() => setWeekAnchor(w => addWeeks(w, 1))}
@@ -225,7 +225,7 @@ export default function KidDashboard() {
 
       {/* ── Summary ── */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>Summary</h2>
+        <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>Summary</h2>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
           {[
@@ -261,7 +261,7 @@ export default function KidDashboard() {
       {/* ── Leaderboard ── */}
       {leaderboard.length > 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Trophy size={15} color="#f59e0b" /> This Week's Leaderboard
           </h2>
           <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>

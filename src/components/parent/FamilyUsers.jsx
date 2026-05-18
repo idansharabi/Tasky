@@ -59,7 +59,7 @@ export default function FamilyUsers() {
     <div style={{ maxWidth: '700px', margin: '0 auto', padding: '48px 40px 80px' }}>
 
       <div style={{ marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.5px' }}>Family</h1>
+        <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.5px' }}>Family</h1>
         <p style={{ fontSize: '15px', color: '#9ca3af', marginTop: '6px' }}>{users.length} registered member{users.length !== 1 ? 's' : ''}</p>
       </div>
 
@@ -96,7 +96,7 @@ function Section({ title, icon, count, children }) {
     <div style={{ marginBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
         {icon}
-        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
+        <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>{title}</h2>
         <span style={{ fontSize: '12px', color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: '99px', fontWeight: 500 }}>{count}</span>
       </div>
       <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '14px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>

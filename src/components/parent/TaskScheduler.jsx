@@ -762,7 +762,7 @@ export default function TaskScheduler() {
       <div style={{ padding: isMobile ? '16px 16px 0' : '28px 40px 0', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
-            <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.4px' }}>Schedule</h1>
+            <h1 style={{ fontSize: isMobile ? '20px' : '24px', fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.4px' }}>Schedule</h1>
             {!isMobile && <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>Drag tasks onto kids to assign them</p>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -824,7 +824,7 @@ export default function TaskScheduler() {
             })
           ) : (
             // Weekly: show week range label
-            <div style={{ flex: 1, textAlign: 'center', fontSize: '14px', fontWeight: 600, color: '#374151' }}>
+            <div style={{ flex: 1, textAlign: 'center', fontSize: '14px', fontWeight: 600, color: '#94a3b8' }}>
               {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
             </div>
           )}
@@ -886,7 +886,7 @@ export default function TaskScheduler() {
                             background: isToday ? '#eef2ff' : 'transparent',
                           }}>
                             <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: isToday ? '#6366f1' : '#9ca3af' }}>{format(day, 'EEE')}</span>
-                            <span style={{ fontSize: '18px', fontWeight: 700, color: isToday ? '#6366f1' : '#374151' }}>{format(day, 'd')}</span>
+                            <span style={{ fontSize: '18px', fontWeight: 700, color: isToday ? '#818cf8' : '#94a3b8' }}>{format(day, 'd')}</span>
                           </div>
                         </th>
                       )
@@ -906,7 +906,7 @@ export default function TaskScheduler() {
                           }}>
                             {kid.avatar_emoji}
                           </div>
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{kid.name}</span>
+                          <span style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{kid.name}</span>
                         </div>
                       </td>
                       {/* Day cells */}

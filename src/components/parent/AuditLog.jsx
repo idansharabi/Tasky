@@ -53,7 +53,7 @@ export default function AuditLog() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '32px' }}>
         <div>
-          <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.5px' }}>Audit Log</h1>
+          <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.5px' }}>Audit Log</h1>
           <p style={{ fontSize: '15px', color: '#9ca3af', marginTop: '6px' }}>{filtered.length} event{filtered.length !== 1 ? 's' : ''}</p>
         </div>
         <button onClick={load} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: '13px', color: '#374151' }}>

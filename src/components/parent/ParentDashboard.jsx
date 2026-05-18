@@ -116,7 +116,7 @@ export default function ParentDashboard({ onNavigate }) {
 
       {/* Page header */}
       <div style={{ marginBottom: '48px' }}>
-        <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.5px' }}>
+        <h1 style={{ fontSize: '26px', fontWeight: 700, color: '#f1f5f9', margin: 0, letterSpacing: '-0.5px' }}>
           Good {getGreeting()}, {profile?.name || 'there'} 👋
         </h1>
         <p style={{ fontSize: '15px', color: '#9ca3af', marginTop: '6px' }}>
@@ -448,7 +448,7 @@ function Section({ title, children, count, meta, action, sectionRef }) {
     <div ref={sectionRef} style={{ marginBottom: '52px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>{title}</h2>
+          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>{title}</h2>
           {count != null && (
             <span style={{ fontSize: '12px', color: '#6b7280', background: '#f3f4f6', padding: '2px 8px', borderRadius: '99px', fontWeight: 500 }}>{count}</span>
           )}
