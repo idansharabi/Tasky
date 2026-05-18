@@ -134,7 +134,7 @@ export default function KidApp() {
 
         {/* Content */}
         <main style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
-          <div style={{ maxWidth: '960px', margin: '0 auto', padding: '32px 40px 80px', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ maxWidth: '960px', margin: '0 auto', padding: 'clamp(16px, 4vw, 32px) clamp(16px, 5vw, 40px) 80px', width: '100%', boxSizing: 'border-box' }}>
             {tab === 'tasks'   && <KidDashboard />}
             {tab === 'store'   && <RewardStore />}
             {tab === 'history' && <CreditHistory />}

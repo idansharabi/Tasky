@@ -66,6 +66,13 @@ export default function KidDashboard() {
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [weekAnchor, setWeekAnchor] = useState(new Date())
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const color = profile?.avatar_color || '#6366f1'
@@ -187,14 +194,23 @@ export default function KidDashboard() {
           </div>
         )}
 
-        {/* Daily: timeline + Today card side by side */}
+        {/* Daily: timeline + Today card */}
         {view === 'daily' && (
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
+          isMobile ? (
+            // Mobile: stacked vertically — Today card on top, timeline below
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <TodayCard tasks={todayTasks} color={color} pct={pctToday} onSubmit={setSubmitting} fullWidth />
               <HourlyTimeline tasks={allTasks.filter(t => t.due_date === today)} selectedDate={today} today={today} color={color} onSubmit={setSubmitting} />
             </div>
-            <TodayCard tasks={todayTasks} color={color} pct={pctToday} onSubmit={setSubmitting} />
-          </div>
+          ) : (
+            // Desktop: side by side
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <HourlyTimeline tasks={allTasks.filter(t => t.due_date === today)} selectedDate={today} today={today} color={color} onSubmit={setSubmitting} />
+              </div>
+              <TodayCard tasks={todayTasks} color={color} pct={pctToday} onSubmit={setSubmitting} />
+            </div>
+          )
         )}
 
         {/* Weekly: 7-column week grid */}
@@ -244,7 +260,7 @@ export default function KidDashboard() {
 }
 
 // ── Today's Tasks card (right panel) ─────────────────────────
-function TodayCard({ tasks, color, pct, onSubmit }) {
+function TodayCard({ tasks, color, pct, onSubmit, fullWidth = false }) {
   const sorted = [...tasks].sort((a, b) => {
     if (a.due_time && b.due_time) return a.due_time.localeCompare(b.due_time)
     if (a.due_time) return -1
@@ -254,12 +270,12 @@ function TodayCard({ tasks, color, pct, onSubmit }) {
 
   return (
     <div style={{
-      width: '210px', flexShrink: 0,
+      width: fullWidth ? '100%' : '210px', flexShrink: 0,
       background: '#fff', borderRadius: '16px',
       border: '1px solid #e5e7eb',
       boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
       overflow: 'hidden',
-      position: 'sticky', top: '16px',
+      position: fullWidth ? 'relative' : 'sticky', top: fullWidth ? undefined : '16px',
     }}>
       {/* Header */}
       <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid #f3f4f6' }}>
