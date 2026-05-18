@@ -205,19 +205,74 @@ function TaskBankPanel({ templates }) {
   )
 }
 
-// ── Task Bank panel — mobile (horizontal strip) ───────────────
+// ── Task Bank panel — mobile (category tabs + scrollable strip) ──
 function TaskBankMobile({ templates }) {
+  // Build groups, keep only non-empty ones
+  const groups = CATEGORIES
+    .map(cat => ({ ...cat, tasks: templates.filter(t => (t.category || 'Other') === cat.id) }))
+    .filter(g => g.tasks.length > 0)
+
+  const [activeCat, setActiveCat] = useState(null)
+
+  // Default to first available category
+  const resolvedCat = activeCat && groups.find(g => g.id === activeCat)
+    ? activeCat
+    : groups[0]?.id
+
+  const visibleTasks = groups.find(g => g.id === resolvedCat)?.tasks || templates
+
+  if (templates.length === 0) {
+    return (
+      <div style={{ flexShrink: 0, borderTop: '1px solid #f3f4f6', padding: '12px 16px 8px' }}>
+        <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>No tasks yet.</p>
+      </div>
+    )
+  }
+
   return (
-    <div style={{ flexShrink: 0, borderTop: '1px solid #f3f4f6', padding: '12px 16px 8px' }}>
-      <h2 style={{ fontSize: '10px', fontWeight: 700, color: '#9ca3af', letterSpacing: '0.8px', textTransform: 'uppercase', margin: '0 0 10px' }}>
-        Task Bank — drag to assign
-      </h2>
-      <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', WebkitOverflowScrolling: 'touch' }}>
-        {templates.length === 0 ? (
-          <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>No tasks yet.</p>
-        ) : (
-          templates.map((tpl) => <DraggableTemplateMobile key={tpl.id} tpl={tpl} />)
-        )}
+    <div style={{ flexShrink: 0, borderTop: '2px solid #e5e7eb', background: '#fff' }}>
+      {/* Category tab bar */}
+      <div style={{
+        display: 'flex', gap: '6px', overflowX: 'auto', padding: '10px 12px 6px',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none', msOverflowStyle: 'none',
+      }}>
+        {groups.map(g => {
+          const active = g.id === resolvedCat
+          return (
+            <button
+              key={g.id}
+              onPointerDown={e => { e.stopPropagation(); setActiveCat(g.id) }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0,
+                padding: '5px 10px', borderRadius: '99px', border: 'none', cursor: 'pointer',
+                fontSize: '12px', fontWeight: 600,
+                background: active ? '#6366f1' : '#f3f4f6',
+                color: active ? '#fff' : '#6b7280',
+                transition: 'all 0.15s',
+              }}
+            >
+              <span>{g.emoji}</span>
+              {g.label}
+              <span style={{
+                fontSize: '10px', fontWeight: 700,
+                background: active ? 'rgba(255,255,255,0.25)' : '#e5e7eb',
+                color: active ? '#fff' : '#9ca3af',
+                borderRadius: '99px', padding: '1px 5px', marginLeft: '1px',
+              }}>{g.tasks.length}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Task strip for active category */}
+      <div style={{
+        display: 'flex', gap: '8px', overflowX: 'auto',
+        padding: '4px 12px 12px',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none', msOverflowStyle: 'none',
+      }}>
+        {visibleTasks.map(tpl => <DraggableTemplateMobile key={tpl.id} tpl={tpl} />)}
       </div>
     </div>
   )
