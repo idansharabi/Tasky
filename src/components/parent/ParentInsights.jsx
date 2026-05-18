@@ -4,7 +4,7 @@ import { Star, TrendingUp, CheckCircle, AlertTriangle, Send } from 'lucide-react
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { sendPush } from '../../lib/notifications'
+import { logAction } from '../../lib/audit'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -113,25 +113,45 @@ export default function ParentInsights() {
   useEffect(() => { load() }, [])
 
   async function handleSendSummary() {
+    if (sending) return
     setSending(true)
     try {
-      // Build summary message
+      // Build summary lines per kid
       const lines = kids.map(k => {
         const s = kidWeekStats[k.id] || {}
         const pct = s.total ? Math.round((s.completed / s.total) * 100) : 0
         return `${k.avatar_emoji} ${k.name}: ${s.credits || 0} credits · ${pct}% done`
       })
-      const { data: parents } = await supabase.from('profiles').select('id').eq('role', 'parent')
-      if (parents?.length) {
-        await sendPush(
-          parents.map(p => p.id),
-          `📊 Weekly Summary — ${format(new Date(), 'MMM d')}`,
-          lines.join(' | ')
-        )
+
+      // Fetch parent IDs
+      const { data: parents, error: parentsErr } = await supabase
+        .from('profiles').select('id').eq('role', 'parent')
+      if (parentsErr) throw parentsErr
+      if (!parents?.length) {
+        toast.error('No parents found to notify')
+        setSending(false)
+        return
       }
-      toast.success('Weekly summary sent!')
-    } catch {
-      toast.error('Failed to send summary')
+
+      // Invoke edge function directly so we can detect errors
+      const title = `📊 Weekly Summary — ${format(weekStart, 'MMM d')}–${format(addDays(weekStart, 6), 'MMM d')}`
+      const body = lines.join(' | ')
+      const { error: pushErr } = await supabase.functions.invoke('send-push', {
+        body: { userIds: parents.map(p => p.id), title, body },
+      })
+      if (pushErr) throw pushErr
+
+      // Audit log
+      await logAction(profile, 'send_weekly_summary', 'insights', {
+        week_start: weekStartStr,
+        recipient_count: parents.length,
+        kids: kids.map(k => ({ name: k.name, credits: kidWeekStats[k.id]?.credits || 0 })),
+      })
+
+      toast.success(`📊 Weekly summary sent to ${parents.length} parent${parents.length > 1 ? 's' : ''}!`)
+    } catch (err) {
+      console.error('Send summary error:', err)
+      toast.error('Failed to send summary — check console for details')
     }
     setSending(false)
   }
