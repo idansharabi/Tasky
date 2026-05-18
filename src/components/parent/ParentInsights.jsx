@@ -136,19 +136,28 @@ export default function ParentInsights() {
       // Invoke edge function directly so we can detect errors
       const title = `📊 Weekly Summary — ${format(weekStart, 'MMM d')}–${format(addDays(weekStart, 6), 'MMM d')}`
       const body = lines.join(' | ')
-      const { error: pushErr } = await supabase.functions.invoke('send-push', {
+      const { data: pushData, error: pushErr } = await supabase.functions.invoke('send-push', {
         body: { userIds: parents.map(p => p.id), title, body },
       })
       if (pushErr) throw pushErr
+
+      const sent = pushData?.sent ?? 0
 
       // Audit log
       await logAction(profile, 'send_weekly_summary', 'insights', {
         week_start: weekStartStr,
         recipient_count: parents.length,
+        notifications_sent: sent,
         kids: kids.map(k => ({ name: k.name, credits: kidWeekStats[k.id]?.credits || 0 })),
       })
 
-      toast.success(`📊 Weekly summary sent to ${parents.length} parent${parents.length > 1 ? 's' : ''}!`)
+      if (sent === 0) {
+        toast('No push subscriptions found — make sure parents have notifications enabled in their browser', {
+          icon: '⚠️', duration: 5000,
+        })
+      } else {
+        toast.success(`📊 Weekly summary delivered to ${sent} device${sent > 1 ? 's' : ''}!`)
+      }
     } catch (err) {
       console.error('Send summary error:', err)
       toast.error('Failed to send summary — check console for details')
