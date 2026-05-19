@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format, subDays } from 'date-fns'
-import { Star, TrendingUp, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
+import { Star, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -14,6 +14,8 @@ export default function ParentInsights() {
   const [kidWeekStats, setKidWeekStats] = useState({})   // kid_id → { credits, completed, total }
   const [taskRates, setTaskRates] = useState([])          // { template_id, title, icon, total, completed }
   const [dailyCredits, setDailyCredits] = useState([])    // { day, kid_id, credits }
+  const [ledger, setLedger] = useState([])                // all ledger entries last 30 days
+  const [selectedKid, setSelectedKid] = useState(null)   // kid_id filter for ledger
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
@@ -24,7 +26,7 @@ export default function ParentInsights() {
   async function load() {
     setLoading(true)
 
-    const [kidsRes, assignmentsRes, ledgerWeekRes, ledgerDailyRes] = await Promise.all([
+    const [kidsRes, assignmentsRes, ledgerWeekRes, ledgerDailyRes, ledgerAllRes] = await Promise.all([
       // All kids
       supabase.from('profiles').select('id, name, avatar_emoji, avatar_color').eq('role', 'kid').order('name'),
 
@@ -48,10 +50,19 @@ export default function ParentInsights() {
         .select('kid_id, amount, created_at')
         .gte('created_at', sevenDaysAgo)
         .gt('amount', 0),
+
+      // Full ledger last 30 days (for credit breakdown)
+      supabase
+        .from('credit_ledger')
+        .select('*')
+        .gte('created_at', thirtyDaysAgo)
+        .order('created_at', { ascending: false }),
     ])
 
     const kidsData = kidsRes.data || []
     setKids(kidsData)
+    setLedger(ledgerAllRes.data || [])
+    setSelectedKid(prev => prev || kidsData[0]?.id || null)
 
     // ── Kid week stats ──────────────────────────────────────────
     const statsMap = {}
@@ -378,6 +389,110 @@ export default function ParentInsights() {
             })}
           </div>
         )}
+      </Section>
+
+      {/* ── Credit Ledger ── */}
+      <Section title="Credit Ledger" subtitle="Last 30 days">
+        {/* Kid tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          {kids.map(k => {
+            const isSelected = selectedKid === k.id
+            const c = k.avatar_color || '#6366f1'
+            const filtered = ledger.filter(e => e.kid_id === k.id)
+            const balance = filtered.reduce((s, e) => s + e.amount, 0)
+            return (
+              <button
+                key={k.id}
+                onClick={() => setSelectedKid(k.id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '7px',
+                  padding: '7px 14px', borderRadius: '99px', border: 'none', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: 600, transition: 'all 0.15s',
+                  background: isSelected ? c : 'rgba(255,255,255,0.06)',
+                  color: isSelected ? '#fff' : '#94a3b8',
+                  boxShadow: isSelected ? `0 2px 8px ${c}50` : 'none',
+                }}
+              >
+                <span>{k.avatar_emoji}</span>
+                <span>{k.name}</span>
+                <span style={{
+                  fontSize: '11px', fontWeight: 700,
+                  background: isSelected ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
+                  padding: '1px 7px', borderRadius: '99px',
+                }}>
+                  {balance > 0 ? '+' : ''}{balance}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Entries for selected kid */}
+        {(() => {
+          const entries = ledger.filter(e => e.kid_id === selectedKid)
+          const kid = kids.find(k => k.id === selectedKid)
+          if (!kid) return null
+          if (entries.length === 0) return (
+            <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '14px', padding: '40px', textAlign: 'center' }}>
+              <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>No transactions in the last 30 days</p>
+            </div>
+          )
+          const earned = entries.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0)
+          const spent  = entries.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0)
+          const c = kid.avatar_color || '#6366f1'
+          return (
+            <div>
+              {/* Mini summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginBottom: '14px' }}>
+                {[
+                  { label: 'Balance', value: earned + spent, icon: <Star size={13} fill="#f59e0b" color="#f59e0b" />, color: '#f1f5f9' },
+                  { label: 'Earned',  value: `+${earned}`,   icon: <TrendingUp size={13} color="#22c55e" />,          color: '#86efac' },
+                  { label: 'Spent',   value: spent || 0,     icon: <TrendingDown size={13} color="#f87171" />,        color: '#fca5a5' },
+                ].map(s => (
+                  <div key={s.label} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', padding: '12px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', marginBottom: '3px' }}>
+                      {s.icon}
+                      <span style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.value}</span>
+                    </div>
+                    <p style={{ fontSize: '11px', color: '#64748b', margin: 0 }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Entry list */}
+              <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+                {entries.map((entry, i) => (
+                  <div key={entry.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '12px 16px',
+                    borderBottom: i < entries.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  }}>
+                    <div style={{
+                      width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
+                      background: entry.amount > 0 ? 'rgba(34,197,94,0.15)' : 'rgba(248,113,113,0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {entry.amount > 0
+                        ? <TrendingUp size={14} color="#22c55e" />
+                        : <TrendingDown size={14} color="#f87171" />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 500, color: '#e2e8f0', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {entry.description}
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0' }}>
+                        {format(new Date(entry.created_at), 'MMM d, yyyy · h:mm a')}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: '14px', fontWeight: 700, flexShrink: 0, color: entry.amount > 0 ? '#4ade80' : '#f87171' }}>
+                      {entry.amount > 0 ? '+' : ''}{entry.amount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
       </Section>
 
     </div>

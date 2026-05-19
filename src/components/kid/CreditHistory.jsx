@@ -35,8 +35,16 @@ export default function CreditHistory() {
   const earned = ledger.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0)
   const spent = ledger.filter((r) => r.amount < 0).reduce((s, r) => s + r.amount, 0)
 
+  const color = profile?.avatar_color || '#6366f1'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingBottom: '32px' }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: '4px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#f1f5f9', margin: '0 0 4px', letterSpacing: '-0.4px' }}>Credit History</h1>
+        <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>All your credits earned and spent</p>
+      </div>
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
