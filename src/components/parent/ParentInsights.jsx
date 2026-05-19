@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { format, subDays, startOfWeek, addDays } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { Star, TrendingUp, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
@@ -17,8 +17,6 @@ export default function ParentInsights() {
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 0 })
-  const weekStartStr = format(weekStart, 'yyyy-MM-dd')
   const today = format(new Date(), 'yyyy-MM-dd')
   const thirtyDaysAgo = format(subDays(new Date(), 30), 'yyyy-MM-dd')
   const sevenDaysAgo  = format(subDays(new Date(), 6), 'yyyy-MM-dd')
@@ -37,11 +35,11 @@ export default function ParentInsights() {
         .gte('due_date', thirtyDaysAgo)
         .lte('due_date', today),
 
-      // Credits earned this week (positive entries only)
+      // Credits earned last 7 days (positive entries only)
       supabase
         .from('credit_ledger')
         .select('kid_id, amount, created_at')
-        .gte('created_at', weekStartStr)
+        .gte('created_at', sevenDaysAgo)
         .gt('amount', 0),
 
       // Credits per day last 7 days
@@ -60,12 +58,12 @@ export default function ParentInsights() {
     for (const k of kidsData) {
       statsMap[k.id] = { credits: 0, completed: 0, total: 0 }
     }
-    // Credits this week
+    // Credits last 7 days
     for (const entry of (ledgerWeekRes.data || [])) {
       if (statsMap[entry.kid_id]) statsMap[entry.kid_id].credits += entry.amount
     }
-    // Tasks this week
-    for (const a of (assignmentsRes.data || []).filter(a => a.due_date >= weekStartStr)) {
+    // Tasks last 7 days
+    for (const a of (assignmentsRes.data || []).filter(a => a.due_date >= sevenDaysAgo)) {
       if (statsMap[a.kid_id]) {
         statsMap[a.kid_id].total++
         if (a.status === 'approved') statsMap[a.kid_id].completed++
@@ -126,8 +124,8 @@ export default function ParentInsights() {
         return
       }
 
-      const weekLabel = `${format(weekStart, 'MMM d')}–${format(addDays(weekStart, 6), 'MMM d')}`
-      const subject = `📊 Tasky Weekly Summary — ${weekLabel}`
+      const weekLabel = `${format(subDays(new Date(), 6), 'MMM d')}–${format(new Date(), 'MMM d')}`
+      const subject = `📊 Tasky Summary — Last 7 Days (${weekLabel})`
 
       // Build HTML email
       const kidRows = kids.map(k => {
@@ -238,8 +236,8 @@ export default function ParentInsights() {
         </button>
       </div>
 
-      {/* ── This Week: Kid Cards ── */}
-      <Section title="This Week" subtitle={`${format(weekStart, 'MMM d')} – ${format(addDays(weekStart, 6), 'MMM d')}`}>
+      {/* ── Last 7 Days: Kid Cards ── */}
+      <Section title="Last 7 Days" subtitle={`${format(subDays(new Date(), 6), 'MMM d')} – ${format(new Date(), 'MMM d')}`}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '14px' }}>
           {kids.map(kid => {
             const s = kidWeekStats[kid.id] || { credits: 0, completed: 0, total: 0 }
