@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { format, subDays } from 'date-fns'
-import { Star, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, Mail } from 'lucide-react'
+import { Star, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, Mail, X, Clock, Camera } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -14,8 +14,10 @@ export default function ParentInsights() {
   const [kidWeekStats, setKidWeekStats] = useState({})   // kid_id → { credits, completed, total }
   const [taskRates, setTaskRates] = useState([])          // { template_id, title, icon, total, completed }
   const [dailyCredits, setDailyCredits] = useState([])    // { day, kid_id, credits }
+  const [assignments, setAssignments] = useState([])      // all assignments last 30 days
   const [ledger, setLedger] = useState([])                // all ledger entries last 30 days
   const [selectedKid, setSelectedKid] = useState(null)   // kid_id filter for ledger
+  const [modalKid, setModalKid] = useState(null)          // kid object for task breakdown modal
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
 
@@ -33,9 +35,10 @@ export default function ParentInsights() {
       // All assignments last 30 days with template info
       supabase
         .from('task_assignments')
-        .select('id, kid_id, template_id, title, icon, status, due_date')
+        .select('id, kid_id, template_id, title, icon, status, due_date, credit_value')
         .gte('due_date', thirtyDaysAgo)
-        .lte('due_date', today),
+        .lte('due_date', today)
+        .order('due_date', { ascending: false }),
 
       // Credits earned last 7 days (positive entries only)
       supabase
@@ -61,6 +64,7 @@ export default function ParentInsights() {
 
     const kidsData = kidsRes.data || []
     setKids(kidsData)
+    setAssignments(assignmentsRes.data || [])
     setLedger(ledgerAllRes.data || [])
     setSelectedKid(prev => prev || kidsData[0]?.id || null)
 
@@ -202,7 +206,7 @@ export default function ParentInsights() {
 
       // Audit log
       await logAction(profile, 'send_weekly_summary', 'insights', {
-        week_start: weekStartStr,
+        week_start: sevenDaysAgo,
         emails_sent: sent,
         kids: kids.map(k => ({ name: k.name, credits: kidWeekStats[k.id]?.credits || 0 })),
       })
@@ -255,13 +259,22 @@ export default function ParentInsights() {
             const pct = s.total ? Math.round((s.completed / s.total) * 100) : 0
             const c = kid.avatar_color || '#6366f1'
             return (
-              <div key={kid.id} style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div
+                key={kid.id}
+                onClick={() => setModalKid(kid)}
+                style={{ background: '#fff', borderRadius: '16px', border: '1px solid #e5e7eb', padding: '18px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)', cursor: 'pointer', transition: 'box-shadow 0.15s, transform 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 4px 16px ${c}30`; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.transform = 'none' }}
+              >
                 {/* Kid header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
                   <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: c + '25', border: `2px solid ${c}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                     {kid.avatar_emoji}
                   </div>
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{kid.name}</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{kid.name}</span>
+                    <p style={{ fontSize: '11px', color: '#9ca3af', margin: '1px 0 0' }}>tap for breakdown</p>
+                  </div>
                 </div>
 
                 {/* Credits */}
@@ -495,6 +508,137 @@ export default function ParentInsights() {
         })()}
       </Section>
 
+      {/* ── Kid Task Breakdown Modal ── */}
+      {modalKid && (
+        <KidTaskModal
+          kid={modalKid}
+          assignments={assignments.filter(a => a.kid_id === modalKid.id)}
+          ledger={ledger.filter(e => e.kid_id === modalKid.id)}
+          onClose={() => setModalKid(null)}
+        />
+      )}
+
+    </div>
+  )
+}
+
+// ── Kid Task Breakdown Modal ─────────────────────────────────
+const STATUS = {
+  approved:  { label: 'Approved',  bg: '#dcfce7', color: '#15803d', icon: <CheckCircle size={12} /> },
+  submitted: { label: 'Submitted', bg: '#dbeafe', color: '#1d4ed8', icon: <Camera size={12} /> },
+  pending:   { label: 'To Do',     bg: '#f3f4f6', color: '#6b7280', icon: <Clock size={12} /> },
+  rejected:  { label: 'Rejected',  bg: '#fee2e2', color: '#b91c1c', icon: <X size={12} /> },
+}
+
+function KidTaskModal({ kid, assignments, ledger, onClose }) {
+  const c = kid.avatar_color || '#6366f1'
+  const totalCredits = ledger.reduce((s, e) => s + e.amount, 0)
+  const earned = ledger.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0)
+  const spent  = ledger.filter(e => e.amount < 0).reduce((s, e) => s + e.amount, 0)
+  const completed = assignments.filter(a => a.status === 'approved').length
+
+  // Group assignments by date
+  const byDate = {}
+  for (const a of assignments) {
+    if (!byDate[a.due_date]) byDate[a.due_date] = []
+    byDate[a.due_date].push(a)
+  }
+  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a))
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      {/* Backdrop */}
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+
+      {/* Panel */}
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: '100%', maxWidth: '520px', maxHeight: '85vh',
+        background: 'rgba(10,18,40,0.97)',
+        border: `1px solid ${c}30`,
+        borderRadius: '20px',
+        boxShadow: `0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px ${c}20`,
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, background: `linear-gradient(135deg, ${c}18, transparent)` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: c + '25', border: `2px solid ${c}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px' }}>
+                {kid.avatar_emoji}
+              </div>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#f1f5f9', margin: 0 }}>{kid.name}</h2>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>Last 30 days · {assignments.length} tasks assigned</p>
+              </div>
+            </div>
+            <button onClick={onClose} style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', display: 'flex' }}>
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginTop: '16px' }}>
+            {[
+              { label: 'Balance',   value: totalCredits, color: '#f1f5f9' },
+              { label: 'Earned',    value: `+${earned}`, color: '#4ade80' },
+              { label: 'Spent',     value: spent || 0,   color: spent < 0 ? '#f87171' : '#64748b' },
+              { label: 'Completed', value: `${completed}/${assignments.length}`, color: '#60a5fa' },
+            ].map(s => (
+              <div key={s.label} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '10px 8px', textAlign: 'center' }}>
+                <p style={{ fontSize: '16px', fontWeight: 700, color: s.color, margin: '0 0 2px' }}>{s.value}</p>
+                <p style={{ fontSize: '10px', color: '#475569', margin: 0 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Task list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px 24px' }}>
+          {assignments.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '48px 0' }}>
+              <p style={{ fontSize: '32px', margin: '0 0 8px' }}>📋</p>
+              <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>No tasks assigned in the last 30 days</p>
+            </div>
+          ) : (
+            dates.map(date => (
+              <div key={date} style={{ marginBottom: '20px' }}>
+                {/* Date header */}
+                <p style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', margin: '0 0 8px' }}>
+                  {format(new Date(date + 'T12:00:00'), 'EEEE, MMM d')}
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {byDate[date].map(task => {
+                    const st = STATUS[task.status] || STATUS.pending
+                    return (
+                      <div key={task.id} style={{
+                        display: 'flex', alignItems: 'center', gap: '12px',
+                        background: 'rgba(255,255,255,0.04)', borderRadius: '10px',
+                        border: '1px solid rgba(255,255,255,0.06)', padding: '10px 14px',
+                      }}>
+                        <span style={{ fontSize: '20px', flexShrink: 0 }}>{task.icon}</span>
+                        <span style={{ flex: 1, fontSize: '13px', fontWeight: 500, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {task.title}
+                        </span>
+                        {task.status === 'approved' && task.credit_value && (
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#4ade80', flexShrink: 0 }}>+{task.credit_value}</span>
+                        )}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '99px', background: st.bg, color: st.color, flexShrink: 0 }}>
+                          {st.icon} {st.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
     </div>
   )
 }
