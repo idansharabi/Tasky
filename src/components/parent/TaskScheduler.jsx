@@ -990,10 +990,9 @@ export default function TaskScheduler() {
 
 // ── Recurrence Picker Modal ──────────────────────────────────
 const RECURRENCE_OPTIONS = [
-  { value: 'none',     label: 'One-time',  sub: 'Just this day',            emoji: '1️⃣' },
-  { value: 'daily',    label: 'Daily',     sub: 'Every day',                emoji: '📅' },
-  { value: 'weekdays', label: 'Weekdays',  sub: 'Mon – Fri',                emoji: '🏫' },
-  { value: 'weekly',   label: 'Weekly',    sub: 'Same day every week',      emoji: '🔁' },
+  { value: 'none',   label: 'One-time', sub: 'Just this day',          emoji: '1️⃣' },
+  { value: 'daily',  label: 'Daily',    sub: 'Every day',              emoji: '📅' },
+  { value: 'weekly', label: 'Weekly',   sub: 'Same day every week',    emoji: '🔁' },
 ]
 
 function RecurrencePicker({ drop, kids, onConfirm, onCancel }) {
