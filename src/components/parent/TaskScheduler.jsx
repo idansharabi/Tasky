@@ -667,25 +667,40 @@ export default function TaskScheduler() {
     const { tpl, kidId, dateStr, hourSlot } = pendingDrop
     setPendingDrop(null)
     const isRecurring = recurrenceType !== 'none'
-    const { error } = await supabase.from('task_assignments').insert({
+
+    // Build all dates to insert upfront so they're visible in the schedule immediately.
+    // morning-agent deduplicates and extends beyond this window each day.
+    const base = new Date(dateStr + 'T00:00:00')
+    const dates = [dateStr]
+    if (recurrenceType === 'daily') {
+      for (let i = 1; i < 28; i++)
+        dates.push(format(addDays(base, i), 'yyyy-MM-dd'))
+    } else if (recurrenceType === 'weekly') {
+      for (let i = 1; i <= 4; i++)
+        dates.push(format(addDays(base, i * 7), 'yyyy-MM-dd'))
+    }
+
+    const rows = dates.map(d => ({
       template_id: tpl.id,
       kid_id: kidId,
       title: tpl.title,
       description: tpl.description || null,
       credit_value: tpl.credit_value,
       icon: tpl.icon,
-      due_date: dateStr,
+      due_date: d,
       due_time: hourSlot === 'anytime' ? null : hourSlot,
       is_recurring: isRecurring,
       recurrence_type: isRecurring ? recurrenceType : null,
       created_by: profile.id,
-    })
+    }))
+
+    const { error } = await supabase.from('task_assignments').insert(rows)
     if (!error) {
       const kid = kids.find(k => k.id === kidId)
       const timeLabel = hourSlot === 'anytime' ? '' : ` at ${fmtHour(hourSlot)}`
       const recurLabel = recurrenceType === 'none' ? '' : ` · repeats ${recurrenceType}`
       toast.success(`${tpl.icon} assigned${recurLabel}!`)
-      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}${recurLabel}`)
+      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}${recurLabel} (${dates.length} dates)`)
       load()
     } else toast.error(error.message)
   }
