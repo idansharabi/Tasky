@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Trash2, ChevronLeft, ChevronRight, ChevronDown, Star, LayoutList, LayoutGrid, Clock } from 'lucide-react'
+import { Trash2, ChevronLeft, ChevronRight, ChevronDown, Star, LayoutList, LayoutGrid, Clock, X, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   DndContext,
@@ -345,6 +345,9 @@ function TimelineTaskBlock({ task, onDelete, kidColor }) {
       <span style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
+      {task.is_recurring && (
+        <span title={`Repeats ${task.recurrence_type}`} style={{ fontSize: '10px', flexShrink: 0 }}>🔁</span>
+      )}
       {!task.due_time && (
         <span title="No time set" style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '99px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', flexShrink: 0 }}>
           <Clock size={8} /> No time
@@ -584,6 +587,7 @@ function WeeklyTaskPill({ task, onDelete }) {
     >
       <span style={{ fontSize: '11px' }}>{task.icon}</span>
       <span style={{ fontSize: '11px', fontWeight: 500, color: st.color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+      {task.is_recurring && <span title={`Repeats ${task.recurrence_type}`} style={{ fontSize: '9px', flexShrink: 0 }}>🔁</span>}
       {!task.due_time && (
         <span title="No time set" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Clock size={9} color="#f97316" />
@@ -612,6 +616,7 @@ export default function TaskScheduler() {
   const [assignments, setAssignments] = useState([])
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [pendingDrop, setPendingDrop] = useState(null)   // { tpl, kidId, dateStr, hourSlot }
   const [activeTemplate, setActiveTemplate] = useState(null)
   const [activeAssignment, setActiveAssignment] = useState(null)
   const [overId, setOverId] = useState(null)
@@ -652,7 +657,16 @@ export default function TaskScheduler() {
 
   useEffect(() => { load() }, [load])
 
-  async function handleDrop(kidId, dateStr, tpl, hourSlot = 'anytime') {
+  function handleDrop(kidId, dateStr, tpl, hourSlot = 'anytime') {
+    // Stage the drop — show recurrence picker before inserting
+    setPendingDrop({ tpl, kidId, dateStr, hourSlot })
+  }
+
+  async function confirmDrop(recurrenceType) {
+    if (!pendingDrop) return
+    const { tpl, kidId, dateStr, hourSlot } = pendingDrop
+    setPendingDrop(null)
+    const isRecurring = recurrenceType !== 'none'
     const { error } = await supabase.from('task_assignments').insert({
       template_id: tpl.id,
       kid_id: kidId,
@@ -662,15 +676,16 @@ export default function TaskScheduler() {
       icon: tpl.icon,
       due_date: dateStr,
       due_time: hourSlot === 'anytime' ? null : hourSlot,
-      is_recurring: false,
-      recurrence_type: null,
+      is_recurring: isRecurring,
+      recurrence_type: isRecurring ? recurrenceType : null,
       created_by: profile.id,
     })
     if (!error) {
-      toast.success(`${tpl.icon} assigned!`)
       const kid = kids.find(k => k.id === kidId)
       const timeLabel = hourSlot === 'anytime' ? '' : ` at ${fmtHour(hourSlot)}`
-      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}`)
+      const recurLabel = recurrenceType === 'none' ? '' : ` · repeats ${recurrenceType}`
+      toast.success(`${tpl.icon} assigned${recurLabel}!`)
+      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}${recurLabel}`)
       load()
     } else toast.error(error.message)
   }
@@ -960,6 +975,115 @@ export default function TaskScheduler() {
           confirmLabel="Remove"
         />
       )}
+
+      {pendingDrop && (
+        <RecurrencePicker
+          drop={pendingDrop}
+          kids={kids}
+          onConfirm={confirmDrop}
+          onCancel={() => setPendingDrop(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Recurrence Picker Modal ──────────────────────────────────
+const RECURRENCE_OPTIONS = [
+  { value: 'none',     label: 'One-time',  sub: 'Just this day',            emoji: '1️⃣' },
+  { value: 'daily',    label: 'Daily',     sub: 'Every day',                emoji: '📅' },
+  { value: 'weekdays', label: 'Weekdays',  sub: 'Mon – Fri',                emoji: '🏫' },
+  { value: 'weekly',   label: 'Weekly',    sub: 'Same day every week',      emoji: '🔁' },
+]
+
+function RecurrencePicker({ drop, kids, onConfirm, onCancel }) {
+  const [selected, setSelected] = useState('none')
+  const kid = kids.find(k => k.id === drop.kidId)
+  const c = kid?.avatar_color || '#6366f1'
+  const dateLabel = format(new Date(drop.dateStr + 'T12:00:00'), 'EEEE, MMM d')
+  const timeLabel = drop.hourSlot === 'anytime' ? '' : ` · ${drop.hourSlot}`
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} onClick={onCancel} />
+      <div style={{
+        position: 'relative', zIndex: 1,
+        width: '100%', maxWidth: '380px',
+        background: 'rgba(10,18,40,0.98)',
+        border: `1px solid ${c}40`,
+        borderRadius: '20px',
+        boxShadow: `0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px ${c}20`,
+        overflow: 'hidden',
+      }}>
+        {/* Header */}
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: `linear-gradient(135deg, ${c}18, transparent)` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '26px' }}>{drop.tpl.icon}</span>
+              <div>
+                <p style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9', margin: 0 }}>{drop.tpl.title}</p>
+                <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>
+                  → {kid?.avatar_emoji} {kid?.name} · {dateLabel}{timeLabel}
+                </p>
+              </div>
+            </div>
+            <button onClick={onCancel} style={{ padding: '5px', borderRadius: '7px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', display: 'flex' }}>
+              <X size={15} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <RefreshCw size={13} color="#60a5fa" />
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#93c5fd' }}>How often should this repeat?</span>
+          </div>
+        </div>
+
+        {/* Options */}
+        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {RECURRENCE_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setSelected(opt.value)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '12px 14px', borderRadius: '12px', border: 'none', cursor: 'pointer',
+                textAlign: 'left', transition: 'all 0.12s',
+                background: selected === opt.value ? c + '25' : 'rgba(255,255,255,0.04)',
+                boxShadow: selected === opt.value ? `inset 0 0 0 1.5px ${c}60` : 'inset 0 0 0 1px rgba(255,255,255,0.07)',
+              }}
+            >
+              <span style={{ fontSize: '22px', flexShrink: 0 }}>{opt.emoji}</span>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: selected === opt.value ? '#f1f5f9' : '#94a3b8', margin: 0 }}>{opt.label}</p>
+                <p style={{ fontSize: '11px', color: '#475569', margin: '2px 0 0' }}>{opt.sub}</p>
+              </div>
+              <div style={{
+                width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
+                border: `2px solid ${selected === opt.value ? c : 'rgba(255,255,255,0.15)'}`,
+                background: selected === opt.value ? c : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {selected === opt.value && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff' }} />}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 16px 16px', display: 'flex', gap: '8px' }}>
+          <button
+            onClick={onCancel}
+            style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(selected)}
+            style={{ flex: 2, padding: '10px', borderRadius: '10px', border: 'none', background: c, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Assign {selected !== 'none' ? '🔁' : ''}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
