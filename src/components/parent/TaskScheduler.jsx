@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { format, addDays, startOfWeek, addWeeks, subWeeks } from 'date-fns'
-import { Trash2, ChevronLeft, ChevronRight, ChevronDown, Star, LayoutList, LayoutGrid, Clock, X, RefreshCw } from 'lucide-react'
+import { Trash2, ChevronLeft, ChevronRight, ChevronDown, Star, LayoutList, LayoutGrid, Clock, X, RefreshCw, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
   DndContext,
@@ -30,6 +30,35 @@ const CATEGORIES = [
   { id: 'Garden',    label: 'Garden',    emoji: '🌱', color: '#166534', bg: '#f0fdf4' },
   { id: 'Other',     label: 'Other',     emoji: '⭐', color: '#374151', bg: '#f9fafb' },
 ]
+
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+function describeDays(daysOfWeek) {
+  const sorted = [...daysOfWeek].sort((a, b) => a - b)
+  if (sorted.length === 7) return 'every day'
+  if (sorted.length === 5 && sorted.join(',') === '1,2,3,4,5') return 'weekdays'
+  return sorted.map(d => DAY_NAMES[d]).join('/')
+}
+
+function datesForWindow(startDateStr, daysOfWeek, windowDays) {
+  const base = new Date(startDateStr + 'T00:00:00')
+  const set = new Set(daysOfWeek)
+  const dates = []
+  for (let i = 0; i < windowDays; i++) {
+    const d = addDays(base, i)
+    if (set.has(d.getDay())) dates.push(format(d, 'yyyy-MM-dd'))
+  }
+  return dates
+}
+
+function recurrenceBadgeLabel(task, recurrencesById) {
+  if (!task.is_recurring) return null
+  if (task.recurrence_id && recurrencesById[task.recurrence_id]) {
+    return describeDays(recurrencesById[task.recurrence_id].days_of_week)
+  }
+  return task.recurrence_type || 'recurring'
+}
 
 const STATUS_STYLE = {
   approved:  { bg: '#dcfce7', color: '#16a34a', label: 'Done' },
@@ -345,8 +374,8 @@ function TimelineTaskBlock({ task, onDelete, kidColor }) {
       <span style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {task.title}
       </span>
-      {task.is_recurring && (
-        <span title={`Repeats ${task.recurrence_type}`} style={{ fontSize: '10px', flexShrink: 0 }}>🔁</span>
+      {task._recurLabel && (
+        <span title={`Repeats ${task._recurLabel}`} style={{ fontSize: '10px', flexShrink: 0 }}>🔁</span>
       )}
       {!task.due_time && (
         <span title="No time set" style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '99px', background: '#fff7ed', color: '#c2410c', border: '1px solid #fed7aa', flexShrink: 0 }}>
@@ -587,7 +616,7 @@ function WeeklyTaskPill({ task, onDelete }) {
     >
       <span style={{ fontSize: '11px' }}>{task.icon}</span>
       <span style={{ fontSize: '11px', fontWeight: 500, color: st.color, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
-      {task.is_recurring && <span title={`Repeats ${task.recurrence_type}`} style={{ fontSize: '9px', flexShrink: 0 }}>🔁</span>}
+      {task._recurLabel && <span title={`Repeats ${task._recurLabel}`} style={{ fontSize: '9px', flexShrink: 0 }}>🔁</span>}
       {!task.due_time && (
         <span title="No time set" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <Clock size={9} color="#f97316" />
@@ -614,12 +643,15 @@ export default function TaskScheduler() {
   const [kids, setKids] = useState([])
   const [templates, setTemplates] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [recurrences, setRecurrences] = useState([])
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [pendingDrop, setPendingDrop] = useState(null)   // { tpl, kidId, dateStr, hourSlot }
   const [activeTemplate, setActiveTemplate] = useState(null)
   const [activeAssignment, setActiveAssignment] = useState(null)
   const [overId, setOverId] = useState(null)
+  const [managerOpen, setManagerOpen] = useState(false)
+  const [editingRecurrence, setEditingRecurrence] = useState(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
   useEffect(() => {
@@ -640,7 +672,7 @@ export default function TaskScheduler() {
   const today = format(new Date(), 'yyyy-MM-dd')
 
   const load = useCallback(async () => {
-    const [kidsRes, templatesRes, assignRes] = await Promise.all([
+    const [kidsRes, templatesRes, assignRes, recRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('role', 'kid').order('name'),
       supabase.from('task_templates').select('*').order('title'),
       supabase
@@ -649,37 +681,81 @@ export default function TaskScheduler() {
         .gte('due_date', weekStartStr)
         .lte('due_date', weekEndStr)
         .order('created_at'),
+      supabase.from('task_recurrences').select('*').eq('active', true).order('created_at'),
     ])
     setKids(kidsRes.data || [])
     setTemplates(templatesRes.data || [])
     setAssignments(assignRes.data || [])
+    setRecurrences(recRes.data || [])
   }, [profile.id, weekStartStr, weekEndStr])
 
   useEffect(() => { load() }, [load])
+
+  const recurrencesById = useMemo(() => {
+    const map = {}
+    for (const r of recurrences) map[r.id] = r
+    return map
+  }, [recurrences])
+
+  const labeledAssignments = useMemo(
+    () => assignments.map(a => ({ ...a, _recurLabel: recurrenceBadgeLabel(a, recurrencesById) })),
+    [assignments, recurrencesById]
+  )
 
   function handleDrop(kidId, dateStr, tpl, hourSlot = 'anytime') {
     // Stage the drop — show recurrence picker before inserting
     setPendingDrop({ tpl, kidId, dateStr, hourSlot })
   }
 
-  async function confirmDrop(recurrenceType) {
+  async function confirmDrop(selectedDays) {
     if (!pendingDrop) return
     const { tpl, kidId, dateStr, hourSlot } = pendingDrop
     setPendingDrop(null)
-    const isRecurring = recurrenceType !== 'none'
+    const dueTime = hourSlot === 'anytime' ? null : hourSlot
+    const kid = kids.find(k => k.id === kidId)
 
-    // Build all dates to insert upfront so they're visible in the schedule immediately.
-    // morning-agent deduplicates and extends beyond this window each day.
-    const base = new Date(dateStr + 'T00:00:00')
-    const dates = [dateStr]
-    if (recurrenceType === 'daily') {
-      for (let i = 1; i < 28; i++)
-        dates.push(format(addDays(base, i), 'yyyy-MM-dd'))
-    } else if (recurrenceType === 'weekly') {
-      for (let i = 1; i <= 4; i++)
-        dates.push(format(addDays(base, i * 7), 'yyyy-MM-dd'))
+    if (!selectedDays.length) {
+      // One-time task — no series involved.
+      const { error } = await supabase.from('task_assignments').insert({
+        template_id: tpl.id,
+        kid_id: kidId,
+        title: tpl.title,
+        description: tpl.description || null,
+        credit_value: tpl.credit_value,
+        icon: tpl.icon,
+        due_date: dateStr,
+        due_time: dueTime,
+        created_by: profile.id,
+      })
+      if (!error) {
+        const timeLabel = hourSlot === 'anytime' ? '' : ` at ${fmtHour(hourSlot)}`
+        toast.success(`${tpl.icon} assigned!`)
+        logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}`)
+        load()
+      } else toast.error(error.message)
+      return
     }
 
+    // Recurring — create the series record first, then pre-populate the
+    // visible window from it. morning-agent extends it day by day after that.
+    const { data: recurrence, error: recErr } = await supabase
+      .from('task_recurrences')
+      .insert({
+        template_id: tpl.id,
+        kid_id: kidId,
+        title: tpl.title,
+        description: tpl.description || null,
+        credit_value: tpl.credit_value,
+        icon: tpl.icon,
+        due_time: dueTime,
+        days_of_week: selectedDays,
+        created_by: profile.id,
+      })
+      .select()
+      .single()
+    if (recErr) { toast.error(recErr.message); return }
+
+    const dates = datesForWindow(dateStr, selectedDays, 28)
     const rows = dates.map(d => ({
       template_id: tpl.id,
       kid_id: kidId,
@@ -688,21 +764,72 @@ export default function TaskScheduler() {
       credit_value: tpl.credit_value,
       icon: tpl.icon,
       due_date: d,
-      due_time: hourSlot === 'anytime' ? null : hourSlot,
-      is_recurring: isRecurring,
-      recurrence_type: isRecurring ? recurrenceType : null,
+      due_time: dueTime,
+      is_recurring: true,
+      recurrence_id: recurrence.id,
       created_by: profile.id,
     }))
 
     const { error } = await supabase.from('task_assignments').insert(rows)
     if (!error) {
-      const kid = kids.find(k => k.id === kidId)
-      const timeLabel = hourSlot === 'anytime' ? '' : ` at ${fmtHour(hourSlot)}`
-      const recurLabel = recurrenceType === 'none' ? '' : ` · repeats ${recurrenceType}`
-      toast.success(`${tpl.icon} assigned${recurLabel}!`)
-      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} on ${dateStr}${timeLabel}${recurLabel} (${dates.length} dates)`)
+      const dayLabel = describeDays(selectedDays)
+      toast.success(`${tpl.icon} assigned · repeats ${dayLabel}!`)
+      logAction(profile, 'Task assigned', 'task', `"${tpl.title}" → ${kid?.name || kidId} starting ${dateStr}, repeats ${dayLabel} (${dates.length} dates)`)
       load()
     } else toast.error(error.message)
+  }
+
+  async function cancelRecurrence(recurrence) {
+    await supabase.from('task_recurrences').update({ active: false }).eq('id', recurrence.id)
+    await supabase.from('task_assignments')
+      .delete()
+      .eq('recurrence_id', recurrence.id)
+      .eq('status', 'pending')
+      .gte('due_date', today)
+    const kid = kids.find(k => k.id === recurrence.kid_id)
+    toast.success(`"${recurrence.title}" recurring schedule cancelled`)
+    logAction(profile, 'Recurring task cancelled', 'task', `"${recurrence.title}" for ${kid?.name || recurrence.kid_id}`)
+    load()
+  }
+
+  async function saveRecurrenceEdit(recurrence, newDays, newCreditValue) {
+    const { error: updErr } = await supabase
+      .from('task_recurrences')
+      .update({ days_of_week: newDays, credit_value: newCreditValue })
+      .eq('id', recurrence.id)
+    if (updErr) { toast.error(updErr.message); return }
+
+    // Clear out not-yet-done future instances generated under the old
+    // pattern, then regenerate the window against the new one.
+    await supabase.from('task_assignments')
+      .delete()
+      .eq('recurrence_id', recurrence.id)
+      .eq('status', 'pending')
+      .gte('due_date', today)
+
+    const dates = datesForWindow(today, newDays, 28)
+    if (dates.length) {
+      const rows = dates.map(d => ({
+        template_id: recurrence.template_id,
+        kid_id: recurrence.kid_id,
+        title: recurrence.title,
+        description: recurrence.description,
+        credit_value: newCreditValue,
+        icon: recurrence.icon,
+        due_date: d,
+        due_time: recurrence.due_time,
+        is_recurring: true,
+        recurrence_id: recurrence.id,
+        created_by: profile.id,
+      }))
+      await supabase.from('task_assignments').insert(rows)
+    }
+
+    const kid = kids.find(k => k.id === recurrence.kid_id)
+    toast.success('Recurring schedule updated')
+    logAction(profile, 'Recurring task updated', 'task', `"${recurrence.title}" for ${kid?.name || recurrence.kid_id} → repeats ${describeDays(newDays)}`)
+    setEditingRecurrence(null)
+    load()
   }
 
   async function handleMove(assignment, kidId, dateStr, hourSlot) {
@@ -751,7 +878,7 @@ export default function TaskScheduler() {
     }
   }
 
-  async function handleDelete() {
+  async function handleDeleteOne() {
     const { error } = await supabase.from('task_assignments').delete().eq('id', deleteTarget.id)
     if (!error) {
       toast.success('Task removed')
@@ -761,21 +888,16 @@ export default function TaskScheduler() {
     setDeleteTarget(null)
   }
 
-  async function generateRecurring() {
-    const { data: rec } = await supabase.from('task_assignments').select('*').eq('is_recurring', true).lte('due_date', format(addDays(new Date(), -1), 'yyyy-MM-dd'))
-    if (!rec?.length) { toast('No recurring tasks to generate'); return }
-    const dayOfWeek = new Date().getDay()
-    const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const toInsert = rec.filter((t) => {
-      if (t.recurrence_type === 'daily') return true
-      if (t.recurrence_type === 'weekdays') return dayOfWeek >= 1 && dayOfWeek <= 5
-      if (t.recurrence_type === 'weekly') return new Date(t.due_date).getDay() === dayOfWeek
-      return false
-    }).map((t) => ({ template_id: t.template_id, kid_id: t.kid_id, title: t.title, description: t.description, credit_value: t.credit_value, icon: t.icon, due_date: todayStr, is_recurring: true, recurrence_type: t.recurrence_type, created_by: t.created_by }))
-    if (!toInsert.length) { toast('Already generated for today'); return }
-    const { error } = await supabase.from('task_assignments').insert(toInsert)
-    if (!error) { toast.success(`Generated ${toInsert.length} tasks`); load() }
-    else toast.error(error.message)
+  async function handleDeleteSeries() {
+    const recurrence = recurrencesById[deleteTarget.recurrence_id]
+    if (recurrence) {
+      await cancelRecurrence(recurrence)
+    } else {
+      // No linked series record (a leftover from before the recurring redesign) — just this row.
+      await supabase.from('task_assignments').delete().eq('id', deleteTarget.id)
+      load()
+    }
+    setDeleteTarget(null)
   }
 
   function getOverCellId() {
@@ -783,7 +905,7 @@ export default function TaskScheduler() {
     return overId // `${kidId}__${dateStr}`
   }
 
-  const dailyAssignments = assignments.filter((a) => a.due_date === selectedDate)
+  const dailyAssignments = labeledAssignments.filter((a) => a.due_date === selectedDate)
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -796,6 +918,17 @@ export default function TaskScheduler() {
             {!isMobile && <p style={{ fontSize: '14px', color: '#9ca3af', margin: '4px 0 0' }}>Drag tasks onto kids to assign them</p>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setManagerOpen(true)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: isMobile ? '7px 10px' : '7px 14px', borderRadius: '10px',
+                border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer',
+                fontSize: '13px', fontWeight: 600, color: '#374151',
+              }}
+            >
+              <RefreshCw size={14} />{!isMobile && ' Recurring'}
+            </button>
             {/* View toggle */}
             <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
               {[
@@ -943,7 +1076,7 @@ export default function TaskScheduler() {
                       {weekDays.map((day) => {
                         const dayStr = format(day, 'yyyy-MM-dd')
                         const cellId = `${kid.id}__${dayStr}`
-                        const cellTasks = assignments.filter((a) => a.kid_id === kid.id && a.due_date === dayStr)
+                        const cellTasks = labeledAssignments.filter((a) => a.kid_id === kid.id && a.due_date === dayStr)
                         return (
                           <td key={dayStr} style={{ padding: '4px', verticalAlign: 'top' }}>
                             <WeeklyCell
@@ -983,12 +1116,21 @@ export default function TaskScheduler() {
       </DndContext>
 
       {deleteTarget && (
-        <ConfirmDialog
-          message={`Remove "${deleteTarget.title}"?`}
-          onConfirm={handleDelete}
-          onCancel={() => setDeleteTarget(null)}
-          confirmLabel="Remove"
-        />
+        deleteTarget.recurrence_id ? (
+          <DeleteOccurrenceDialog
+            target={deleteTarget}
+            onDeleteOne={handleDeleteOne}
+            onDeleteSeries={handleDeleteSeries}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        ) : (
+          <ConfirmDialog
+            message={`Remove "${deleteTarget.title}"?`}
+            onConfirm={handleDeleteOne}
+            onCancel={() => setDeleteTarget(null)}
+            confirmLabel="Remove"
+          />
+        )
       )}
 
       {pendingDrop && (
@@ -999,19 +1141,90 @@ export default function TaskScheduler() {
           onCancel={() => setPendingDrop(null)}
         />
       )}
+
+      {managerOpen && (
+        <RecurringManager
+          recurrences={recurrences}
+          kids={kids}
+          onClose={() => setManagerOpen(false)}
+          onEdit={(r) => setEditingRecurrence(r)}
+          onCancelSeries={cancelRecurrence}
+        />
+      )}
+
+      {editingRecurrence && (
+        <EditRecurrenceModal
+          recurrence={editingRecurrence}
+          kids={kids}
+          onSave={saveRecurrenceEdit}
+          onCancel={() => setEditingRecurrence(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Day-of-week picker — shared by the create flow and the editor ──
+function DayOfWeekPicker({ selected, onChange, accentColor }) {
+  const c = accentColor || '#6366f1'
+  const isEveryDay = selected.length === 7
+  const isWeekdays = selected.length === 5 && [1, 2, 3, 4, 5].every(d => selected.includes(d))
+
+  function toggleDay(d) {
+    onChange(selected.includes(d) ? selected.filter(x => x !== d) : [...selected, d].sort((a, b) => a - b))
+  }
+
+  function presetBtn(label, active, onClick) {
+    return (
+      <button
+        onClick={onClick}
+        style={{
+          flex: 1, padding: '8px 6px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+          fontSize: '12px', fontWeight: 600,
+          background: active ? c : 'rgba(255,255,255,0.06)',
+          color: active ? '#fff' : '#94a3b8',
+        }}
+      >
+        {label}
+      </button>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+        {presetBtn('One-time', selected.length === 0, () => onChange([]))}
+        {presetBtn('Weekdays', isWeekdays, () => onChange([1, 2, 3, 4, 5]))}
+        {presetBtn('Every day', isEveryDay, () => onChange([0, 1, 2, 3, 4, 5, 6]))}
+      </div>
+      <div style={{ display: 'flex', gap: '6px' }}>
+        {DAY_LETTERS.map((letter, d) => {
+          const active = selected.includes(d)
+          return (
+            <button
+              key={d}
+              onClick={() => toggleDay(d)}
+              title={DAY_NAMES[d]}
+              style={{
+                flex: 1, aspectRatio: '1', borderRadius: '9px', border: 'none', cursor: 'pointer',
+                fontSize: '12px', fontWeight: 700,
+                background: active ? c : 'rgba(255,255,255,0.06)',
+                color: active ? '#fff' : '#64748b',
+                boxShadow: active ? 'none' : 'inset 0 0 0 1px rgba(255,255,255,0.08)',
+              }}
+            >
+              {letter}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
 
 // ── Recurrence Picker Modal ──────────────────────────────────
-const RECURRENCE_OPTIONS = [
-  { value: 'none',   label: 'One-time', sub: 'Just this day',          emoji: '1️⃣' },
-  { value: 'daily',  label: 'Daily',    sub: 'Every day',              emoji: '📅' },
-  { value: 'weekly', label: 'Weekly',   sub: 'Same day every week',    emoji: '🔁' },
-]
-
 function RecurrencePicker({ drop, kids, onConfirm, onCancel }) {
-  const [selected, setSelected] = useState('none')
+  const [selected, setSelected] = useState([])
   const kid = kids.find(k => k.id === drop.kidId)
   const c = kid?.avatar_color || '#6366f1'
   const dateLabel = format(new Date(drop.dateStr + 'T12:00:00'), 'EEEE, MMM d')
@@ -1051,35 +1264,9 @@ function RecurrencePicker({ drop, kids, onConfirm, onCancel }) {
           </div>
         </div>
 
-        {/* Options */}
-        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {RECURRENCE_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => setSelected(opt.value)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '14px',
-                padding: '12px 14px', borderRadius: '12px', border: 'none', cursor: 'pointer',
-                textAlign: 'left', transition: 'all 0.12s',
-                background: selected === opt.value ? c + '25' : 'rgba(255,255,255,0.04)',
-                boxShadow: selected === opt.value ? `inset 0 0 0 1.5px ${c}60` : 'inset 0 0 0 1px rgba(255,255,255,0.07)',
-              }}
-            >
-              <span style={{ fontSize: '22px', flexShrink: 0 }}>{opt.emoji}</span>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: '14px', fontWeight: 600, color: selected === opt.value ? '#f1f5f9' : '#94a3b8', margin: 0 }}>{opt.label}</p>
-                <p style={{ fontSize: '11px', color: '#475569', margin: '2px 0 0' }}>{opt.sub}</p>
-              </div>
-              <div style={{
-                width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0,
-                border: `2px solid ${selected === opt.value ? c : 'rgba(255,255,255,0.15)'}`,
-                background: selected === opt.value ? c : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                {selected === opt.value && <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#fff' }} />}
-              </div>
-            </button>
-          ))}
+        {/* Day picker */}
+        <div style={{ padding: '16px' }}>
+          <DayOfWeekPicker selected={selected} onChange={setSelected} accentColor={c} />
         </div>
 
         {/* Footer */}
@@ -1094,7 +1281,198 @@ function RecurrencePicker({ drop, kids, onConfirm, onCancel }) {
             onClick={() => onConfirm(selected)}
             style={{ flex: 2, padding: '10px', borderRadius: '10px', border: 'none', background: c, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
           >
-            Assign {selected !== 'none' ? '🔁' : ''}
+            Assign {selected.length > 0 ? '🔁' : ''}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Recurring Tasks manager ──────────────────────────────────
+// ── Delete dialog for a single occurrence that belongs to a series ──
+function DeleteOccurrenceDialog({ target, onDeleteOne, onDeleteSeries, onCancel }) {
+  const dateLabel = format(new Date(target.due_date + 'T12:00:00'), 'EEEE, MMM d')
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '24px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)',
+    }}>
+      <div style={{ background: '#fff', borderRadius: '18px', boxShadow: '0 8px 40px rgba(0,0,0,0.18)', width: '100%', maxWidth: '400px', padding: '28px 24px 24px' }}>
+        <p style={{ fontSize: '15px', color: '#374151', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.5 }}>
+          "{target.title}" repeats. What do you want to remove?
+        </p>
+        <p style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', margin: '0 0 20px' }}>
+          {dateLabel}
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <button
+            onClick={onDeleteSeries}
+            style={{ padding: '11px', borderRadius: '10px', border: 'none', background: '#ef4444', color: '#fff', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            This and all future occurrences
+          </button>
+          <button
+            onClick={onDeleteOne}
+            style={{ padding: '11px', borderRadius: '10px', border: '1px solid #fecaca', background: '#fff', color: '#dc2626', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Just this day
+          </button>
+          <button
+            onClick={onCancel}
+            style={{ padding: '11px', borderRadius: '10px', border: '1px solid #e5e7eb', background: '#fff', color: '#374151', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function RecurringManager({ recurrences, kids, onClose, onEdit, onCancelSeries }) {
+  const [confirmTarget, setConfirmTarget] = useState(null)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} onClick={onClose} />
+      <div style={{
+        position: 'relative', zIndex: 1, width: '100%', maxWidth: '440px', maxHeight: '80vh',
+        display: 'flex', flexDirection: 'column',
+        background: 'rgba(10,18,40,0.98)', border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '20px', boxShadow: '0 24px 60px rgba(0,0,0,0.5)', overflow: 'hidden',
+      }}>
+        <div style={{ padding: '18px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <RefreshCw size={16} color="#60a5fa" />
+            <span style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9' }}>Recurring Tasks</span>
+          </div>
+          <button onClick={onClose} style={{ padding: '5px', borderRadius: '7px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', display: 'flex' }}>
+            <X size={15} />
+          </button>
+        </div>
+
+        <div style={{ padding: '12px 16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {recurrences.length === 0 ? (
+            <p style={{ fontSize: '13px', color: '#64748b', textAlign: 'center', padding: '20px 0' }}>
+              No recurring tasks yet. Drop a task on the schedule and pick some days to start one.
+            </p>
+          ) : recurrences.map(r => {
+            const kid = kids.find(k => k.id === r.kid_id)
+            return (
+              <div key={r.id} style={{
+                display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px',
+                borderRadius: '12px', background: 'rgba(255,255,255,0.04)',
+              }}>
+                <span style={{ fontSize: '20px', flexShrink: 0 }}>{r.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#f1f5f9', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
+                  <p style={{ fontSize: '11px', color: '#64748b', margin: '2px 0 0' }}>
+                    {kid?.avatar_emoji} {kid?.name || '—'} · repeats {describeDays(r.days_of_week)} · +{r.credit_value} cr
+                  </p>
+                </div>
+                <button
+                  onClick={() => onEdit(r)}
+                  style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#93c5fd', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
+                >
+                  <Pencil size={13} />
+                </button>
+                <button
+                  onClick={() => setConfirmTarget(r)}
+                  style={{ padding: '6px', borderRadius: '8px', border: 'none', background: 'rgba(255,255,255,0.06)', color: '#f87171', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {confirmTarget && (
+        <ConfirmDialog
+          message={`Cancel the recurring "${confirmTarget.title}"? This removes all of its not-yet-done future occurrences. Completed ones stay in history.`}
+          confirmLabel="Cancel series"
+          onConfirm={() => { onCancelSeries(confirmTarget); setConfirmTarget(null) }}
+          onCancel={() => setConfirmTarget(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Edit Recurrence Modal ─────────────────────────────────────
+function EditRecurrenceModal({ recurrence, kids, onSave, onCancel }) {
+  const [days, setDays] = useState(recurrence.days_of_week)
+  const [creditValue, setCreditValue] = useState(recurrence.credit_value)
+  const kid = kids.find(k => k.id === recurrence.kid_id)
+  const c = kid?.avatar_color || '#6366f1'
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 210, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }} onClick={onCancel} />
+      <div style={{
+        position: 'relative', zIndex: 1, width: '100%', maxWidth: '380px',
+        background: 'rgba(10,18,40,0.98)', border: `1px solid ${c}40`, borderRadius: '20px',
+        boxShadow: `0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px ${c}20`, overflow: 'hidden',
+      }}>
+        <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid rgba(255,255,255,0.07)', background: `linear-gradient(135deg, ${c}18, transparent)` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '26px' }}>{recurrence.icon}</span>
+            <div>
+              <p style={{ fontSize: '15px', fontWeight: 700, color: '#f1f5f9', margin: 0 }}>{recurrence.title}</p>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '2px 0 0' }}>
+                → {kid?.avatar_emoji} {kid?.name}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#93c5fd', margin: '0 0 8px' }}>Repeats on</p>
+            <DayOfWeekPicker selected={days} onChange={setDays} accentColor={c} />
+          </div>
+          <div>
+            <p style={{ fontSize: '12px', fontWeight: 600, color: '#93c5fd', margin: '0 0 8px' }}>Credits per completion</p>
+            <input
+              type="number"
+              min={1}
+              value={creditValue}
+              onChange={e => setCreditValue(Math.max(1, Number(e.target.value) || 1))}
+              style={{
+                width: '100%', padding: '9px 12px', borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)',
+                color: '#f1f5f9', fontSize: '14px', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          {days.length === 0 && (
+            <p style={{ fontSize: '11px', color: '#f59e0b', margin: 0 }}>
+              Pick at least one day — to stop this task entirely, cancel it from the Recurring Tasks list instead.
+            </p>
+          )}
+        </div>
+
+        <div style={{ padding: '12px 16px 16px', display: 'flex', gap: '8px' }}>
+          <button
+            onClick={onCancel}
+            style={{ flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            disabled={days.length === 0}
+            onClick={() => onSave(recurrence, days, creditValue)}
+            style={{
+              flex: 2, padding: '10px', borderRadius: '10px', border: 'none',
+              background: days.length === 0 ? 'rgba(255,255,255,0.1)' : c,
+              color: days.length === 0 ? '#64748b' : '#fff',
+              fontSize: '14px', fontWeight: 700, cursor: days.length === 0 ? 'not-allowed' : 'pointer',
+            }}
+          >
+            Save changes
           </button>
         </div>
       </div>
